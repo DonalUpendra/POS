@@ -41,13 +41,15 @@ interface InventoryItem {
   category: string;
   currentStock: number;
   minStock: number;
-  unitCost: number;
+  buyPrice: number;
+  sellPrice: number;
   totalValue: number;
   lastUpdated: string;
-  status: 'in_stock' | 'low_stock' | 'out_of_stock' | 'expired' | 'damaged';
+  status: 'in_stock' | 'low_stock' | 'out_of_stock' | 'expired' | 'damaged' | 'returns' | 'owner_bearing';
   barcode?: string;
   unit: string;
   expiryDate?: string;
+  photo?: string;
 }
 
 const Inventory: React.FC = () => {
@@ -88,9 +90,13 @@ const Inventory: React.FC = () => {
     currentStock: '',
     unit: 'pieces',
     minStock: '',
-    unitCost: '',
+    barcode: '',
+    buyPrice: '',
+    sellPrice: '',
+    photo: null as File | null,
     expiryDate: ''
   });
+  const [photoPreview, setPhotoPreview] = useState<string | null>(null);
 
   // Fetch inventory from backend
   const fetchInventory = async () => {
@@ -110,6 +116,15 @@ const Inventory: React.FC = () => {
   useEffect(() => {
     fetchInventory();
   }, []);
+
+  // Clean up preview URL on unmount
+  useEffect(() => {
+    return () => {
+      if (photoPreview) {
+        URL.revokeObjectURL(photoPreview);
+      }
+    };
+  }, [photoPreview]);
 
   const filteredInventory = inventory.filter(item => {
     const matchesSearch = item.name.toLowerCase().includes(searchTerm.toLowerCase());
@@ -217,9 +232,18 @@ const Inventory: React.FC = () => {
       currentStock: '',
       unit: 'pieces',
       minStock: '',
-      unitCost: '',
+      barcode: '',
+      buyPrice: '',
+      sellPrice: '',
+      photo: null,
       expiryDate: ''
     });
+
+    // Clean up preview URL
+    if (photoPreview) {
+      URL.revokeObjectURL(photoPreview);
+      setPhotoPreview(null);
+    }
   };
 
   const handleAddProduct = async () => {
@@ -234,9 +258,11 @@ const Inventory: React.FC = () => {
           category: addProductForm.category,
           currentStock: parseFloat(addProductForm.currentStock) || 0,
           minStock: parseFloat(addProductForm.minStock) || 0,
-          unitCost: parseFloat(addProductForm.unitCost) || 0,
-          barcode: '', // optional
+          buyPrice: parseFloat(addProductForm.buyPrice) || 0,
+          sellPrice: parseFloat(addProductForm.sellPrice) || 0,
+          barcode: addProductForm.barcode || '',
           unit: addProductForm.unit,
+          photo: addProductForm.photo ? addProductForm.photo.name : null,
           expiryDate: addProductForm.expiryDate || null
         }),
       });
@@ -274,6 +300,8 @@ const Inventory: React.FC = () => {
       case 'out_of_stock': return 'error';
       case 'expired': return 'error';
       case 'damaged': return 'error';
+      case 'returns': return 'warning';
+      case 'owner_bearing': return 'success';
       default: return 'default';
     }
   };
@@ -285,6 +313,8 @@ const Inventory: React.FC = () => {
       case 'out_of_stock': return 'Out of Stock';
       case 'expired': return 'Expired';
       case 'damaged': return 'Damaged';
+      case 'returns': return 'Returns';
+      case 'owner_bearing': return 'Owner Bearing';
       default: return status;
     }
   };
@@ -337,7 +367,7 @@ const Inventory: React.FC = () => {
               </Typography>
             </Box>
             <Typography variant="h4" sx={{ fontWeight: 600 }}>
-              ${summaryStats.totalValue.toFixed(2)}
+              Rs.{summaryStats.totalValue.toFixed(2)}
             </Typography>
             <Typography variant="body2" color="text.secondary">
               Current inventory value
@@ -424,6 +454,8 @@ const Inventory: React.FC = () => {
                   <MenuItem value="out_of_stock">Out of Stock</MenuItem>
                   <MenuItem value="expired">Expired</MenuItem>
                   <MenuItem value="damaged">Damaged</MenuItem>
+                  <MenuItem value="returns">Returns</MenuItem>
+                  <MenuItem value="owner_bearing">Owner Bearing</MenuItem>
                 </Select>
               </FormControl>
             </Box>
@@ -443,7 +475,8 @@ const Inventory: React.FC = () => {
                   <TableCell>Current Stock</TableCell>
                   <TableCell>Unit</TableCell>
                   <TableCell>Min. Stock</TableCell>
-                  <TableCell>Unit Cost</TableCell>
+                  <TableCell>Buy Price</TableCell>
+                  <TableCell>Sell Price</TableCell>
                   <TableCell>Total Value</TableCell>
                   <TableCell>Last Updated</TableCell>
                   <TableCell>Expiry Date</TableCell>
@@ -454,7 +487,7 @@ const Inventory: React.FC = () => {
               <TableBody>
                 {filteredInventory.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={11} sx={{ textAlign: 'center', py: 6 }}>
+                    <TableCell colSpan={12} sx={{ textAlign: 'center', py: 6 }}>
                       <InventoryIcon sx={{ fontSize: 48, color: 'text.secondary', mb: 2 }} />
                       <Typography variant="h6" color="text.secondary">
                         No Inventory Items Found
@@ -483,8 +516,9 @@ const Inventory: React.FC = () => {
                       <TableCell>{item.currentStock}</TableCell>
                       <TableCell>{item.unit}</TableCell>
                       <TableCell>{item.minStock}</TableCell>
-                      <TableCell>${item.unitCost.toFixed(2)}</TableCell>
-                      <TableCell>${item.totalValue.toFixed(2)}</TableCell>
+                      <TableCell>Rs.{item.buyPrice.toFixed(2)}</TableCell>
+                      <TableCell>Rs.{item.sellPrice.toFixed(2)}</TableCell>
+                      <TableCell>Rs.{item.totalValue.toFixed(2)}</TableCell>
                       <TableCell>{item.lastUpdated}</TableCell>
                       <TableCell>{item.expiryDate || 'N/A'}</TableCell>
                       <TableCell>
@@ -706,6 +740,14 @@ const Inventory: React.FC = () => {
               </Select>
             </FormControl>
 
+            <TextField
+              fullWidth
+              label="Barcode"
+              value={addProductForm.barcode}
+              onChange={(e) => setAddProductForm({ ...addProductForm, barcode: e.target.value })}
+              sx={{ mb: 2 }}
+            />
+
             <Box sx={{ display: 'flex', gap: 2, mb: 2 }}>
               <TextField
                 fullWidth
@@ -732,23 +774,79 @@ const Inventory: React.FC = () => {
               </FormControl>
             </Box>
 
-            <TextField
-              fullWidth
-              label="Minimum Stock"
+             <Box sx={{ mb: 2 }}>
+               <input
+                 accept="image/*"
+                 style={{ display: 'none' }}
+                 id="product-photo"
+                 type="file"
+                 onChange={(e) => {
+                   const file = e.target.files ? e.target.files[0] : null;
+                   setAddProductForm({ ...addProductForm, photo: file });
+
+                   // Clean up previous preview URL
+                   if (photoPreview) {
+                     URL.revokeObjectURL(photoPreview);
+                   }
+
+                   // Create new preview URL
+                   if (file) {
+                     setPhotoPreview(URL.createObjectURL(file));
+                   } else {
+                     setPhotoPreview(null);
+                   }
+                 }}
+               />
+               <label htmlFor="product-photo">
+                 <Button variant="outlined" component="span" fullWidth>
+                   Upload Product Photo
+                 </Button>
+               </label>
+               {photoPreview && (
+                 <Box sx={{ mt: 2, textAlign: 'center' }}>
+                   <img
+                     src={photoPreview}
+                     alt="Product preview"
+                     style={{
+                       maxWidth: '100%',
+                       maxHeight: '200px',
+                       objectFit: 'contain',
+                       border: '1px solid #ddd',
+                       borderRadius: '8px'
+                     }}
+                   />
+                   <Typography variant="body2" sx={{ mt: 1 }}>
+                     {addProductForm.photo?.name}
+                   </Typography>
+                 </Box>
+               )}
+             </Box>
+
+             <TextField
+               fullWidth
+               label="Minimum Stock"
               type="number"
               value={addProductForm.minStock}
               onChange={(e) => setAddProductForm({ ...addProductForm, minStock: e.target.value })}
               sx={{ mb: 2 }}
             />
 
-            <TextField
-              fullWidth
-              label="Unit Cost"
-              type="number"
-              value={addProductForm.unitCost}
-              onChange={(e) => setAddProductForm({ ...addProductForm, unitCost: e.target.value })}
-              sx={{ mb: 2 }}
-            />
+            <Box sx={{ display: 'flex', gap: 2, mb: 2 }}>
+              <TextField
+                fullWidth
+                label="Buy Price"
+                type="number"
+                value={addProductForm.buyPrice}
+                onChange={(e) => setAddProductForm({ ...addProductForm, buyPrice: e.target.value })}
+              />
+              <TextField
+                fullWidth
+                label="Sell Price"
+                type="number"
+                value={addProductForm.sellPrice}
+                onChange={(e) => setAddProductForm({ ...addProductForm, sellPrice: e.target.value })}
+              />
+            </Box>
 
             <TextField
               fullWidth

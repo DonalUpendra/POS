@@ -629,7 +629,7 @@ const Labels: React.FC = () => {
                   Category
                 </Typography>
                 <Typography variant="h6" sx={{ mb: 1 }}>
-                  $99.99
+                  Rs.99.99
                 </Typography>
                 <Typography variant="body2" sx={{ fontSize: '10px' }}>
                   BARCODE123

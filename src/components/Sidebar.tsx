@@ -20,7 +20,9 @@ import {
   Label as LabelIcon,
   Settings as SettingsIcon,
   Logout as LogoutIcon,
+  Assignment as AssignmentIcon,
 } from '@mui/icons-material';
+import { useAuth } from '../contexts/AuthContext';
 
 interface SidebarProps {
   onClose?: () => void;
@@ -29,28 +31,35 @@ interface SidebarProps {
 const Sidebar: React.FC<SidebarProps> = ({ onClose }) => {
   const navigate = useNavigate();
   const location = useLocation();
+  const { user, logout } = useAuth();
 
-  const menuItems = [
-    { text: 'Dashboard', icon: <HomeIcon />, path: '/dashboard' },
-    { text: 'Sales', icon: <ShoppingCartIcon />, path: '/pos' },
-    { text: 'All Oders', icon: <TrendingUpIcon />, path: '/orders' },
-    { text: 'Customers', icon: <PeopleIcon />, path: '/customers' },
-    { text: 'Inventory', icon: <InventoryIcon />, path: '/inventory' },
-    { text: 'Suppliers', icon: <LocalShippingIcon />, path: '/suppliers' },
-    { text: 'Labels and Printing', icon: <LabelIcon />, path: '/labels' },
-    { text: 'Settings', icon: <SettingsIcon />, path: '/users' },
+  const allMenuItems = [
+    { text: 'Dashboard', icon: <HomeIcon />, path: '/dashboard', roles: ['owner', 'manager', 'cashier'] },
+    { text: 'Sales', icon: <ShoppingCartIcon />, path: '/pos', roles: ['owner', 'manager', 'cashier'] },
+    { text: 'All Orders', icon: <TrendingUpIcon />, path: '/orders', roles: ['owner', 'manager'] },
+    { text: 'Display Orders', icon: <AssignmentIcon />, path: '/externaldisplay', roles: ['owner', 'manager', 'cashier'] },
+    { text: 'Customers', icon: <PeopleIcon />, path: '/customers', roles: ['owner', 'manager'] },
+    { text: 'Inventory', icon: <InventoryIcon />, path: '/inventory', roles: ['owner', 'manager'] },
+    { text: 'Suppliers', icon: <LocalShippingIcon />, path: '/suppliers', roles: ['owner', 'manager'] },
+    { text: 'Labels and Printing', icon: <LabelIcon />, path: '/labels', roles: ['owner', 'manager'] },
+    { text: 'Settings', icon: <SettingsIcon />, path: '/users', roles: ['owner'] },
   ];
 
+  const menuItems = allMenuItems.filter(item => user && item.roles.includes(user.role));
+
   const handleNavigation = (path: string) => {
-    navigate(path);
+    if (path === '/externaldisplay') {
+      window.open(window.location.origin + path, '_blank');
+    } else {
+      navigate(path);
+    }
     if (onClose) {
       onClose();
     }
   };
 
   const handleLogout = () => {
-    // Handle logout logic here
-    console.log('Logout clicked');
+    logout();
   };
 
   return (

@@ -205,7 +205,7 @@ const Orders: React.FC = () => {
                 <TableCell>{order.orderNumber}</TableCell>
                 <TableCell>{order.customer}</TableCell>
                 <TableCell>{order.items}</TableCell>
-                <TableCell>${order.total.toFixed(2)}</TableCell>
+                <TableCell>Rs.{order.total.toFixed(2)}</TableCell>
                 <TableCell>{order.orderTime}</TableCell>
                 {activeTab === 2 && <TableCell>{order.paymentMethod || '-'}</TableCell>}
                 {showActions && (
@@ -330,7 +330,7 @@ const Orders: React.FC = () => {
               </Typography>
             </Box>
             <Typography variant="h4" sx={{ fontWeight: 600 }}>
-              ${summaryStats.totalRevenue.toFixed(2)}
+              Rs.{summaryStats.totalRevenue.toFixed(2)}
             </Typography>
             <Typography variant="body2" color="text.secondary">
               Today's revenue
@@ -393,9 +393,9 @@ const Orders: React.FC = () => {
                   <CardContent>
                     <Typography variant="h6" sx={{ mb: 1 }}>Payment Information</Typography>
                     <Typography><strong>Payment:</strong> {selectedOrder.paymentMethod || 'N/A'}</Typography>
-                    <Typography><strong>Subtotal:</strong> ${(selectedOrder.total * 0.92).toFixed(2)}</Typography>
-                    <Typography><strong>Tax:</strong> ${(selectedOrder.total * 0.08).toFixed(2)}</Typography>
-                    <Typography variant="h6"><strong>Total:</strong> ${selectedOrder.total.toFixed(2)}</Typography>
+                    <Typography><strong>Subtotal:</strong> Rs.{(selectedOrder.total * 0.92).toFixed(2)}</Typography>
+                    <Typography><strong>Tax:</strong> Rs.{(selectedOrder.total * 0.08).toFixed(2)}</Typography>
+                    <Typography variant="h6"><strong>Total:</strong> Rs.{selectedOrder.total.toFixed(2)}</Typography>
                   </CardContent>
                 </Card>
               </Box>
@@ -415,8 +415,8 @@ const Orders: React.FC = () => {
                     <TableRow>
                       <TableCell>Sample Product</TableCell>
                       <TableCell>{selectedOrder.items}</TableCell>
-                      <TableCell>${(selectedOrder.total / selectedOrder.items).toFixed(2)}</TableCell>
-                      <TableCell>${selectedOrder.total.toFixed(2)}</TableCell>
+                      <TableCell>Rs.{(selectedOrder.total / selectedOrder.items).toFixed(2)}</TableCell>
+                      <TableCell>Rs.{selectedOrder.total.toFixed(2)}</TableCell>
                     </TableRow>
                   </TableBody>
                 </Table>
@@ -439,7 +439,7 @@ const Orders: React.FC = () => {
                 Order: {selectedOrder.orderNumber}
               </Typography>
               <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                Customer: {selectedOrder.customer} | Total: ${selectedOrder.total.toFixed(2)}
+                Customer: {selectedOrder.customer} | Total: Rs.{selectedOrder.total.toFixed(2)}
               </Typography>
 
               <Box sx={{ mb: 2 }}>

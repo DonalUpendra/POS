@@ -6,10 +6,13 @@ import {
   Typography,
   Avatar,
   Chip,
+  Button,
 } from '@mui/material';
-import { Search as SearchIcon } from '@mui/icons-material';
+import { Search as SearchIcon, Logout as LogoutIcon } from '@mui/icons-material';
+import { useAuth } from '../contexts/AuthContext';
 
 const Header: React.FC = () => {
+  const { user, logout } = useAuth();
   const [currentTime, setCurrentTime] = useState<string>('');
   const [searchTerm, setSearchTerm] = useState<string>('');
 
@@ -99,10 +102,10 @@ const Header: React.FC = () => {
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
         <Box sx={{ textAlign: 'right' }}>
           <Typography variant="body1" sx={{ fontWeight: 600, color: 'text.primary' }}>
-            User
+            {user?.username || 'User'}
           </Typography>
           <Chip
-            label="Staff"
+            label={user?.role || 'Staff'}
             size="small"
             sx={{
               fontSize: '11px',
@@ -128,8 +131,24 @@ const Header: React.FC = () => {
             },
           }}
         >
-          U
+          {user?.username?.charAt(0).toUpperCase() || 'U'}
         </Avatar>
+        <Button
+          variant="outlined"
+          startIcon={<LogoutIcon />}
+          onClick={logout}
+          sx={{
+            borderRadius: 2,
+            textTransform: 'none',
+            '&:hover': {
+              backgroundColor: 'error.main',
+              color: 'white',
+              borderColor: 'error.main',
+            },
+          }}
+        >
+          Logout
+        </Button>
       </Box>
     </Box>
   );

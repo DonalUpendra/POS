@@ -525,7 +525,7 @@ const Suppliers: React.FC = () => {
                         <TableCell>#SUP001</TableCell>
                         <TableCell>Dec 12, 2024</TableCell>
                         <TableCell>5 products</TableCell>
-                        <TableCell>$1,250.00</TableCell>
+                        <TableCell>Rs.1,250.00</TableCell>
                         <TableCell>
                           <Chip label="Delivered" color="success" size="small" />
                         </TableCell>
@@ -534,7 +534,7 @@ const Suppliers: React.FC = () => {
                         <TableCell>#SUP002</TableCell>
                         <TableCell>Dec 5, 2024</TableCell>
                         <TableCell>3 products</TableCell>
-                        <TableCell>$890.50</TableCell>
+                        <TableCell>Rs.890.50</TableCell>
                         <TableCell>
                           <Chip label="Pending" color="warning" size="small" />
                         </TableCell>
@@ -562,7 +562,7 @@ const Suppliers: React.FC = () => {
                   <Card>
                     <CardContent sx={{ textAlign: 'center' }}>
                       <Typography variant="h4" color="success.main" sx={{ fontWeight: 600 }}>
-                        ${selectedSupplier.totalOrders.toFixed(2)}
+                        Rs.{selectedSupplier.totalOrders.toFixed(2)}
                       </Typography>
                       <Typography variant="body2" color="text.secondary">
                         Total Orders

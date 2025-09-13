@@ -29,7 +29,7 @@ const Dashboard: React.FC = () => {
   const dashboardCards = [
     {
       title: "Today's Sales",
-      value: '$0.00',
+      value: 'Rs.0.00',
       change: '+0.0% from yesterday',
       icon: <ShoppingCartIcon sx={{ fontSize: 32, color: 'white' }} />,
       bgColor: 'linear-gradient(135deg, #3b82f6, #2563eb)',

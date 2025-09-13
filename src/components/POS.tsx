@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   Box,
   Typography,
@@ -16,6 +17,7 @@ import {
   DialogContent,
   DialogActions,
   Divider,
+  Autocomplete,
 } from '@mui/material';
 import {
   ShoppingCart as ShoppingCartIcon,
@@ -47,11 +49,19 @@ interface Product {
 }
 
 const POS: React.FC = () => {
+  const navigate = useNavigate();
   const [cart, setCart] = useState<CartItem[]>([]);
   const [products, setProducts] = useState<Product[]>([
     { id: '1', name: 'Sample Product 1', price: 29.99, stock: 50, category: 'Electronics' },
     { id: '2', name: 'Sample Product 2', price: 19.99, stock: 30, category: 'Clothing' },
     { id: '3', name: 'Sample Product 3', price: 9.99, stock: 100, category: 'Food' },
+  ]);
+
+  const [customers, setCustomers] = useState([
+    { id: '', name: 'Walk-in Customer' },
+    { id: 'add_new', name: 'Add New Customer' },
+    { id: '1', name: 'John Doe', phone: '123-456-7890' },
+    { id: '2', name: 'Jane Smith', phone: '987-654-3210' },
   ]);
   const [searchTerm, setSearchTerm] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('');
@@ -63,7 +73,11 @@ const POS: React.FC = () => {
   const [showHeldSales, setShowHeldSales] = useState(false);
   const [showReturns, setShowReturns] = useState(false);
   const [returnReceiptNumber, setReturnReceiptNumber] = useState('');
+  const [returnNote, setReturnNote] = useState('');
   const [otherSubOption, setOtherSubOption] = useState('');
+  const [showAddCustomer, setShowAddCustomer] = useState(false);
+  const [newCustomerName, setNewCustomerName] = useState('');
+  const [newCustomerPhone, setNewCustomerPhone] = useState('');
 
   // Initialize POS on mount
   useEffect(() => {
@@ -87,8 +101,7 @@ const POS: React.FC = () => {
   const subtotal = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
   const discountAmount = discountValue ? (discountType === 'percent' ? subtotal * (parseFloat(discountValue) / 100) : parseFloat(discountValue)) : 0;
   const discountedSubtotal = subtotal - discountAmount;
-  const tax = discountedSubtotal * 0.08;
-  const total = discountedSubtotal + tax;
+  const total = discountedSubtotal;
 
   const addToCart = (productId: string) => {
     const product = products.find(p => p.id === productId);
@@ -144,6 +157,11 @@ const POS: React.FC = () => {
   const processCheckout = () => {
     if (cart.length === 0) {
       alert('Cart is empty!');
+      return;
+    }
+
+    if (paymentMethod === 'credit' && (!customerSelect || customerSelect === '')) {
+      alert('A registered customer is required for credit payment!');
       return;
     }
 
@@ -223,7 +241,21 @@ const POS: React.FC = () => {
       alert('Please enter a receipt number');
       return;
     }
-    alert('Return functionality would be implemented here');
+    alert(`Return functionality would be implemented here. Receipt: ${returnReceiptNumber}, Note: ${returnNote}`);
+  };
+
+  const handleAddCustomer = () => {
+    if (!newCustomerName.trim()) {
+      alert('Name is required');
+      return;
+    }
+    const newId = Date.now().toString();
+    const newCustomer = { id: newId, name: newCustomerName, phone: newCustomerPhone };
+    setCustomers(prev => [...prev, newCustomer]);
+    setCustomerSelect(newId);
+    setNewCustomerName('');
+    setNewCustomerPhone('');
+    setShowAddCustomer(false);
   };
 
   return (
@@ -312,7 +344,7 @@ const POS: React.FC = () => {
                           {product.category}
                         </Typography>
                         <Typography variant="h6" color="primary">
-                          ${product.price.toFixed(2)}
+                          Rs.{product.price.toFixed(2)}
                         </Typography>
                         <Typography variant="body2" color="text.secondary">
                           Stock: {product.stock}
@@ -338,18 +370,49 @@ const POS: React.FC = () => {
               </Box>
 
               {/* Customer Selection */}
-              <FormControl fullWidth sx={{ mb: 2 }}>
-                <InputLabel>Customer</InputLabel>
-                <Select
-                  value={customerSelect}
-                  onChange={(e) => setCustomerSelect(e.target.value)}
-                  label="Customer"
-                >
-                  <MenuItem value="">Walk-in Customer</MenuItem>
-                  <MenuItem value="1">John Doe - 123-456-7890</MenuItem>
-                  <MenuItem value="2">Jane Smith - 987-654-3210</MenuItem>
-                </Select>
-              </FormControl>
+              <Autocomplete
+                fullWidth
+                sx={{ mb: 2 }}
+                options={customers}
+                getOptionLabel={(option) => option.name + (option.phone ? ` - ${option.phone}` : '')}
+                value={customers.find(c => c.id === customerSelect) || null}
+                onChange={(event, newValue) => {
+                  if (newValue && newValue.id === 'add_new') {
+                    setShowAddCustomer(true);
+                  } else {
+                    setCustomerSelect(newValue ? newValue.id : '');
+                  }
+                }}
+                renderOption={(props, option) => {
+                  const { key, ...otherProps } = props;
+                  return (
+                    <li key={key} {...otherProps}>
+                      {option.id === 'add_new' ? (
+                        <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                          <AddIcon sx={{ mr: 1, color: 'primary.main' }} />
+                          <Typography variant="body1" sx={{ fontWeight: 'bold' }}>
+                            {option.name}
+                          </Typography>
+                        </Box>
+                      ) : (
+                        <Typography variant="body1">
+                          {option.name + (option.phone ? ` - ${option.phone}` : '')}
+                        </Typography>
+                      )}
+                    </li>
+                  );
+                }}
+                renderInput={(params) => (
+                  <TextField
+                    {...params}
+                    label={paymentMethod === 'credit' ? 'Customer *' : 'Customer'}
+                    placeholder="Type to search customers..."
+                    error={paymentMethod === 'credit' && (!customerSelect || customerSelect === '')}
+                    helperText={paymentMethod === 'credit' && (!customerSelect || customerSelect === '') ? 'Registered customer required for credit payment' : ''}
+                  />
+                )}
+                isOptionEqualToValue={(option, value) => option.id === value.id}
+              />
 
               {/* Cart Items */}
               <Box sx={{ mb: 2, maxHeight: 300, overflowY: 'auto' }}>
@@ -371,7 +434,7 @@ const POS: React.FC = () => {
                           {item.name}
                         </Typography>
                         <Typography variant="body2" color="text.secondary">
-                          ${item.price.toFixed(2)} each
+                          Rs.{item.price.toFixed(2)} each
                         </Typography>
                       </Box>
                       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
@@ -386,7 +449,7 @@ const POS: React.FC = () => {
                         </IconButton>
                       </Box>
                       <Typography sx={{ ml: 2, fontWeight: 600 }}>
-                        ${(item.price * item.quantity).toFixed(2)}
+                        Rs.{(item.price * item.quantity).toFixed(2)}
                       </Typography>
                     </Box>
                   ))
@@ -410,7 +473,7 @@ const POS: React.FC = () => {
                     sx={{ width: 80 }}
                   >
                     <MenuItem value="percent">%</MenuItem>
-                    <MenuItem value="amount">$</MenuItem>
+                    <MenuItem value="amount">Rs.</MenuItem>
                   </Select>
                   <Button size="small" variant="outlined">
                     Apply
@@ -422,22 +485,17 @@ const POS: React.FC = () => {
               <Box sx={{ mb: 2 }}>
                 <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
                   <Typography>Subtotal</Typography>
-                  <Typography>${subtotal.toFixed(2)}</Typography>
+                  <Typography>Rs.{subtotal.toFixed(2)}</Typography>
                 </Box>
                 {discountAmount > 0 && (
                   <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1, color: 'error.main' }}>
                     <Typography>Discount</Typography>
-                    <Typography>-${discountAmount.toFixed(2)}</Typography>
+                    <Typography>-Rs.{discountAmount.toFixed(2)}</Typography>
                   </Box>
                 )}
-                <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
-                  <Typography>Tax (8%)</Typography>
-                  <Typography>${tax.toFixed(2)}</Typography>
-                </Box>
-                <Divider sx={{ my: 1 }} />
                 <Box sx={{ display: 'flex', justifyContent: 'space-between', fontWeight: 600 }}>
                   <Typography variant="h6">Total</Typography>
-                  <Typography variant="h6">${total.toFixed(2)}</Typography>
+                  <Typography variant="h6">Rs.{total.toFixed(2)}</Typography>
                 </Box>
               </Box>
 
@@ -503,12 +561,12 @@ const POS: React.FC = () => {
                   </Button>
                   {cashReceived && parseFloat(cashReceived) >= total && (
                     <Typography sx={{ mt: 1, color: 'success.main', textAlign: 'center' }}>
-                      Change: ${(calculateChange()).toFixed(2)}
+                      Change: Rs.{(calculateChange()).toFixed(2)}
                     </Typography>
                   )}
                   {cashReceived && parseFloat(cashReceived) < total && (
                     <Typography sx={{ mt: 1, color: 'error.main', textAlign: 'center' }}>
-                      Insufficient: ${(total - parseFloat(cashReceived)).toFixed(2)}
+                      Insufficient: Rs.{(total - parseFloat(cashReceived)).toFixed(2)}
                     </Typography>
                   )}
                 </Box>
@@ -540,6 +598,9 @@ const POS: React.FC = () => {
           </Typography>
         </DialogContent>
         <DialogActions>
+          <Button variant="contained" onClick={() => navigate('/orders')}>
+            View All Orders
+          </Button>
           <Button onClick={() => setShowHeldSales(false)}>Close</Button>
         </DialogActions>
       </Dialog>
@@ -555,12 +616,49 @@ const POS: React.FC = () => {
             onChange={(e) => setReturnReceiptNumber(e.target.value)}
             sx={{ mb: 2 }}
           />
+          <TextField
+            fullWidth
+            label="Additional Note"
+            multiline
+            rows={4}
+            value={returnNote}
+            onChange={(e) => setReturnNote(e.target.value)}
+            sx={{ mb: 2 }}
+          />
           <Button variant="contained" onClick={loadReturnReceipt}>
             Load Receipt
           </Button>
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setShowReturns(false)}>Close</Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Add Customer Modal */}
+      <Dialog open={showAddCustomer} onClose={() => setShowAddCustomer(false)} maxWidth="sm" fullWidth>
+        <DialogTitle>Add New Customer</DialogTitle>
+        <DialogContent>
+          <TextField
+            fullWidth
+            label="Name"
+            value={newCustomerName}
+            onChange={(e) => setNewCustomerName(e.target.value)}
+            sx={{ mb: 2, mt: 1 }}
+            required
+          />
+          <TextField
+            fullWidth
+            label="Phone Number"
+            value={newCustomerPhone}
+            onChange={(e) => setNewCustomerPhone(e.target.value)}
+            sx={{ mb: 2 }}
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setShowAddCustomer(false)}>Cancel</Button>
+          <Button variant="contained" onClick={handleAddCustomer}>
+            Add Customer
+          </Button>
         </DialogActions>
       </Dialog>
     </Box>

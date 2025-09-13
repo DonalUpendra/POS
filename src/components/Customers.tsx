@@ -251,7 +251,7 @@ const Customers: React.FC = () => {
                           size="small"
                         />
                       </TableCell>
-                      <TableCell>${customer.totalSpent.toFixed(2)}</TableCell>
+                      <TableCell>Rs.{customer.totalSpent.toFixed(2)}</TableCell>
                       <TableCell>{customer.lastOrder || '-'}</TableCell>
                       <TableCell>
                         <IconButton size="small" onClick={() => openEditModal(customer)}>
@@ -443,7 +443,7 @@ const Customers: React.FC = () => {
                         <TableCell>#ORD001</TableCell>
                         <TableCell>Dec 15, 2024</TableCell>
                         <TableCell>3 items</TableCell>
-                        <TableCell>$45.99</TableCell>
+                        <TableCell>Rs.45.99</TableCell>
                         <TableCell>
                           <Chip label="Completed" color="success" size="small" />
                         </TableCell>
@@ -452,7 +452,7 @@ const Customers: React.FC = () => {
                         <TableCell>#ORD002</TableCell>
                         <TableCell>Dec 10, 2024</TableCell>
                         <TableCell>2 items</TableCell>
-                        <TableCell>$28.50</TableCell>
+                        <TableCell>Rs.28.50</TableCell>
                         <TableCell>
                           <Chip label="Completed" color="success" size="small" />
                         </TableCell>
@@ -480,7 +480,7 @@ const Customers: React.FC = () => {
                   <Card>
                     <CardContent sx={{ textAlign: 'center' }}>
                       <Typography variant="h4" color="success.main" sx={{ fontWeight: 600 }}>
-                        ${selectedCustomer.totalSpent.toFixed(2)}
+                        Rs.{selectedCustomer.totalSpent.toFixed(2)}
                       </Typography>
                       <Typography variant="body2" color="text.secondary">
                         Total Spent

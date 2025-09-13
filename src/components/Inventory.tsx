@@ -22,6 +22,10 @@ import {
   DialogActions,
   IconButton,
   Chip,
+  List,
+  ListItem,
+  ListItemText,
+  ListItemSecondaryAction,
 } from '@mui/material';
 import {
   Edit as EditIcon,
@@ -33,6 +37,7 @@ import {
   Error as ErrorIcon,
   Assessment as AssessmentIcon,
   Add as AddIcon,
+  Delete as DeleteIcon,
 } from '@mui/icons-material';
 
 interface InventoryItem {
@@ -41,13 +46,15 @@ interface InventoryItem {
   category: string;
   currentStock: number;
   minStock: number;
-  unitCost: number;
+  buyPrice: number;
+  sellPrice: number;
   totalValue: number;
   lastUpdated: string;
-  status: 'in_stock' | 'low_stock' | 'out_of_stock' | 'expired' | 'damaged';
+  status: 'in_stock' | 'low_stock' | 'out_of_stock' | 'expired' | 'damaged' | 'returns' | 'owner_bearing';
   barcode?: string;
   unit: string;
   expiryDate?: string;
+  photo?: string;
 }
 
 const Inventory: React.FC = () => {
@@ -88,20 +95,106 @@ const Inventory: React.FC = () => {
     currentStock: '',
     unit: 'pieces',
     minStock: '',
-    unitCost: '',
+    barcode: '',
+    buyPrice: '',
+    sellPrice: '',
+    photo: null as File | null,
     expiryDate: ''
   });
+  const [photoPreview, setPhotoPreview] = useState<string | null>(null);
 
-  // Fetch inventory from backend
+  // Categories state
+  const [categories, setCategories] = useState<string[]>(['Electronics', 'Clothing', 'Food', 'Beverages', 'Other']);
+  const [showAddCategoryModal, setShowAddCategoryModal] = useState(false);
+  const [newCategoryName, setNewCategoryName] = useState('');
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [categoryToDelete, setCategoryToDelete] = useState<string>('');
+
+  // Mock inventory data
+  const mockInventoryData: InventoryItem[] = [
+    {
+      id: 1,
+      name: 'Laptop Dell Inspiron',
+      category: 'Electronics',
+      currentStock: 15,
+      minStock: 5,
+      buyPrice: 85000,
+      sellPrice: 95000,
+      totalValue: 1425000,
+      lastUpdated: '2024-01-15',
+      status: 'in_stock',
+      barcode: 'DELL001',
+      unit: 'pieces',
+      expiryDate: undefined
+    },
+    {
+      id: 2,
+      name: 'Wireless Mouse',
+      category: 'Electronics',
+      currentStock: 3,
+      minStock: 10,
+      buyPrice: 1200,
+      sellPrice: 1500,
+      totalValue: 4500,
+      lastUpdated: '2024-01-14',
+      status: 'low_stock',
+      barcode: 'MOUSE001',
+      unit: 'pieces',
+      expiryDate: undefined
+    },
+    {
+      id: 3,
+      name: 'Organic Rice 5kg',
+      category: 'Food',
+      currentStock: 0,
+      minStock: 20,
+      buyPrice: 2500,
+      sellPrice: 2800,
+      totalValue: 0,
+      lastUpdated: '2024-01-13',
+      status: 'out_of_stock',
+      barcode: 'RICE001',
+      unit: 'kg',
+      expiryDate: '2024-06-30'
+    },
+    {
+      id: 4,
+      name: 'Coca Cola 500ml',
+      category: 'Beverages',
+      currentStock: 45,
+      minStock: 30,
+      buyPrice: 150,
+      sellPrice: 200,
+      totalValue: 9000,
+      lastUpdated: '2024-01-12',
+      status: 'in_stock',
+      barcode: 'COKE001',
+      unit: 'bottles',
+      expiryDate: '2024-08-15'
+    },
+    {
+      id: 5,
+      name: 'T-Shirt Large',
+      category: 'Clothing',
+      currentStock: 8,
+      minStock: 15,
+      buyPrice: 800,
+      sellPrice: 1200,
+      totalValue: 9600,
+      lastUpdated: '2024-01-11',
+      status: 'low_stock',
+      barcode: 'TSHIRT001',
+      unit: 'pieces',
+      expiryDate: undefined
+    }
+  ];
+
+  // Fetch inventory from mock data
   const fetchInventory = async () => {
     try {
-      const response = await fetch('http://localhost:3001/api/inventory');
-      if (response.ok) {
-        const data = await response.json();
-        setInventory(data);
-      } else {
-        console.error('Failed to fetch inventory');
-      }
+      // Simulate API delay
+      await new Promise(resolve => setTimeout(resolve, 500));
+      setInventory(mockInventoryData);
     } catch (error) {
       console.error('Error fetching inventory:', error);
     }
@@ -110,6 +203,15 @@ const Inventory: React.FC = () => {
   useEffect(() => {
     fetchInventory();
   }, []);
+
+  // Clean up preview URL on unmount
+  useEffect(() => {
+    return () => {
+      if (photoPreview) {
+        URL.revokeObjectURL(photoPreview);
+      }
+    };
+  }, [photoPreview]);
 
   const filteredInventory = inventory.filter(item => {
     const matchesSearch = item.name.toLowerCase().includes(searchTerm.toLowerCase());
@@ -129,22 +231,27 @@ const Inventory: React.FC = () => {
   const handleUpdateStock = async () => {
     if (!selectedItem) return;
     try {
-      const response = await fetch(`http://localhost:3001/api/inventory/${selectedItem.id}/stock`, {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          adjustment: parseFloat(updateForm.adjustment) || 0,
-        }),
-      });
-      if (response.ok) {
-        fetchInventory(); // Refresh the list
-        setShowUpdateModal(false);
-        resetUpdateForm();
-      } else {
-        console.error('Failed to update stock');
-      }
+      // Simulate API delay
+      await new Promise(resolve => setTimeout(resolve, 300));
+
+      // Update local state
+      setInventory(prevInventory =>
+        prevInventory.map(item =>
+          item.id === selectedItem.id
+            ? {
+                ...item,
+                currentStock: Math.max(0, item.currentStock + (parseFloat(updateForm.adjustment) || 0)),
+                totalValue: (Math.max(0, item.currentStock + (parseFloat(updateForm.adjustment) || 0))) * item.sellPrice,
+                lastUpdated: new Date().toISOString().split('T')[0],
+                status: (Math.max(0, item.currentStock + (parseFloat(updateForm.adjustment) || 0))) === 0 ? 'out_of_stock' :
+                       (Math.max(0, item.currentStock + (parseFloat(updateForm.adjustment) || 0))) < item.minStock ? 'low_stock' : 'in_stock'
+              }
+            : item
+        )
+      );
+
+      setShowUpdateModal(false);
+      resetUpdateForm();
     } catch (error) {
       console.error('Error updating stock:', error);
     }
@@ -153,22 +260,27 @@ const Inventory: React.FC = () => {
   const handleRemoveExpired = async () => {
     if (!selectedItem) return;
     try {
-      const response = await fetch(`http://localhost:3001/api/inventory/${selectedItem.id}/stock`, {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          adjustment: -(parseFloat(expiredForm.quantity) || 0),
-        }),
-      });
-      if (response.ok) {
-        fetchInventory(); // Refresh the list
-        setShowExpiredModal(false);
-        resetExpiredForm();
-      } else {
-        console.error('Failed to remove expired stock');
-      }
+      // Simulate API delay
+      await new Promise(resolve => setTimeout(resolve, 300));
+
+      // Update local state
+      setInventory(prevInventory =>
+        prevInventory.map(item =>
+          item.id === selectedItem.id
+            ? {
+                ...item,
+                currentStock: Math.max(0, item.currentStock - (parseFloat(expiredForm.quantity) || 0)),
+                totalValue: Math.max(0, item.currentStock - (parseFloat(expiredForm.quantity) || 0)) * item.sellPrice,
+                lastUpdated: new Date().toISOString().split('T')[0],
+                status: Math.max(0, item.currentStock - (parseFloat(expiredForm.quantity) || 0)) === 0 ? 'out_of_stock' :
+                       Math.max(0, item.currentStock - (parseFloat(expiredForm.quantity) || 0)) < item.minStock ? 'low_stock' : 'in_stock'
+              }
+            : item
+        )
+      );
+
+      setShowExpiredModal(false);
+      resetExpiredForm();
     } catch (error) {
       console.error('Error removing expired stock:', error);
     }
@@ -177,22 +289,27 @@ const Inventory: React.FC = () => {
   const handleRemoveDamaged = async () => {
     if (!selectedItem) return;
     try {
-      const response = await fetch(`http://localhost:3001/api/inventory/${selectedItem.id}/stock`, {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          adjustment: -(parseFloat(damagedForm.quantity) || 0),
-        }),
-      });
-      if (response.ok) {
-        fetchInventory(); // Refresh the list
-        setShowDamagedModal(false);
-        resetDamagedForm();
-      } else {
-        console.error('Failed to remove damaged stock');
-      }
+      // Simulate API delay
+      await new Promise(resolve => setTimeout(resolve, 300));
+
+      // Update local state
+      setInventory(prevInventory =>
+        prevInventory.map(item =>
+          item.id === selectedItem.id
+            ? {
+                ...item,
+                currentStock: Math.max(0, item.currentStock - (parseFloat(damagedForm.quantity) || 0)),
+                totalValue: Math.max(0, item.currentStock - (parseFloat(damagedForm.quantity) || 0)) * item.sellPrice,
+                lastUpdated: new Date().toISOString().split('T')[0],
+                status: Math.max(0, item.currentStock - (parseFloat(damagedForm.quantity) || 0)) === 0 ? 'out_of_stock' :
+                       Math.max(0, item.currentStock - (parseFloat(damagedForm.quantity) || 0)) < item.minStock ? 'low_stock' : 'in_stock'
+              }
+            : item
+        )
+      );
+
+      setShowDamagedModal(false);
+      resetDamagedForm();
     } catch (error) {
       console.error('Error removing damaged stock:', error);
     }
@@ -217,39 +334,93 @@ const Inventory: React.FC = () => {
       currentStock: '',
       unit: 'pieces',
       minStock: '',
-      unitCost: '',
+      barcode: '',
+      buyPrice: '',
+      sellPrice: '',
+      photo: null,
       expiryDate: ''
     });
+
+    // Clean up preview URL
+    if (photoPreview) {
+      URL.revokeObjectURL(photoPreview);
+      setPhotoPreview(null);
+    }
   };
 
   const handleAddProduct = async () => {
     try {
-      const response = await fetch('http://localhost:3001/api/inventory', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          name: addProductForm.name,
-          category: addProductForm.category,
-          currentStock: parseFloat(addProductForm.currentStock) || 0,
-          minStock: parseFloat(addProductForm.minStock) || 0,
-          unitCost: parseFloat(addProductForm.unitCost) || 0,
-          barcode: '', // optional
-          unit: addProductForm.unit,
-          expiryDate: addProductForm.expiryDate || null
-        }),
-      });
-      if (response.ok) {
-        fetchInventory(); // Refresh the list
-        setShowAddModal(false);
-        resetAddProductForm();
-      } else {
-        console.error('Failed to add product');
-      }
+      // Simulate API delay
+      await new Promise(resolve => setTimeout(resolve, 300));
+
+      // Create new product
+      const newProduct: InventoryItem = {
+        id: Math.max(...inventory.map(item => item.id)) + 1, // Generate new ID
+        name: addProductForm.name,
+        category: addProductForm.category,
+        currentStock: parseFloat(addProductForm.currentStock) || 0,
+        minStock: parseFloat(addProductForm.minStock) || 0,
+        buyPrice: parseFloat(addProductForm.buyPrice) || 0,
+        sellPrice: parseFloat(addProductForm.sellPrice) || 0,
+        totalValue: (parseFloat(addProductForm.currentStock) || 0) * (parseFloat(addProductForm.sellPrice) || 0),
+        lastUpdated: new Date().toISOString().split('T')[0],
+        status: (parseFloat(addProductForm.currentStock) || 0) === 0 ? 'out_of_stock' :
+                (parseFloat(addProductForm.currentStock) || 0) < (parseFloat(addProductForm.minStock) || 0) ? 'low_stock' : 'in_stock',
+        barcode: addProductForm.barcode || '',
+        unit: addProductForm.unit,
+        photo: addProductForm.photo ? addProductForm.photo.name : undefined,
+        expiryDate: addProductForm.expiryDate || undefined
+      };
+
+      // Add to local state
+      setInventory(prevInventory => [...prevInventory, newProduct]);
+
+      setShowAddModal(false);
+      resetAddProductForm();
     } catch (error) {
       console.error('Error adding product:', error);
     }
+  };
+
+  const handleAddCategory = () => {
+    if (newCategoryName.trim()) {
+      setCategories(prev => [...prev, newCategoryName.trim()]);
+      setAddProductForm({ ...addProductForm, category: newCategoryName.trim() });
+      setNewCategoryName('');
+      setShowAddCategoryModal(false);
+    }
+  };
+
+  const handleDeleteCategory = () => {
+    if (categoryToDelete) {
+      // Check if category is being used by any products
+      const productsUsingCategory = inventory.filter(item => item.category === categoryToDelete);
+
+      if (productsUsingCategory.length > 0) {
+        // If category is in use, show warning but still allow deletion
+        alert(`Warning: ${productsUsingCategory.length} product(s) are using this category. Deleting it will not remove the products, but they will keep the category name.`);
+      }
+
+      setCategories(prev => prev.filter(cat => cat !== categoryToDelete));
+
+      // If the deleted category was selected in the add product form, clear it
+      if (addProductForm.category === categoryToDelete) {
+        setAddProductForm({ ...addProductForm, category: '' });
+      }
+
+      // If the deleted category was selected in the filter, clear it
+      if (categoryFilter === categoryToDelete) {
+        setCategoryFilter('');
+      }
+
+      setShowDeleteConfirm(false);
+      setCategoryToDelete('');
+    }
+  };
+
+  const openDeleteConfirm = (category: string) => {
+    setCategoryToDelete(category);
+    setShowDeleteConfirm(true);
   };
 
   const openUpdateModal = (item: InventoryItem) => {
@@ -274,6 +445,8 @@ const Inventory: React.FC = () => {
       case 'out_of_stock': return 'error';
       case 'expired': return 'error';
       case 'damaged': return 'error';
+      case 'returns': return 'warning';
+      case 'owner_bearing': return 'success';
       default: return 'default';
     }
   };
@@ -285,6 +458,8 @@ const Inventory: React.FC = () => {
       case 'out_of_stock': return 'Out of Stock';
       case 'expired': return 'Expired';
       case 'damaged': return 'Damaged';
+      case 'returns': return 'Returns';
+      case 'owner_bearing': return 'Owner Bearing';
       default: return status;
     }
   };
@@ -337,7 +512,7 @@ const Inventory: React.FC = () => {
               </Typography>
             </Box>
             <Typography variant="h4" sx={{ fontWeight: 600 }}>
-              ${summaryStats.totalValue.toFixed(2)}
+              Rs.{summaryStats.totalValue.toFixed(2)}
             </Typography>
             <Typography variant="body2" color="text.secondary">
               Current inventory value
@@ -404,9 +579,9 @@ const Inventory: React.FC = () => {
                   label="Category"
                 >
                   <MenuItem value="">All Categories</MenuItem>
-                  <MenuItem value="Electronics">Electronics</MenuItem>
-                  <MenuItem value="Clothing">Clothing</MenuItem>
-                  <MenuItem value="Food">Food</MenuItem>
+                  {categories.map(cat => (
+                    <MenuItem key={cat} value={cat}>{cat}</MenuItem>
+                  ))}
                 </Select>
               </FormControl>
             </Box>
@@ -424,6 +599,8 @@ const Inventory: React.FC = () => {
                   <MenuItem value="out_of_stock">Out of Stock</MenuItem>
                   <MenuItem value="expired">Expired</MenuItem>
                   <MenuItem value="damaged">Damaged</MenuItem>
+                  <MenuItem value="returns">Returns</MenuItem>
+                  <MenuItem value="owner_bearing">Owner Bearing</MenuItem>
                 </Select>
               </FormControl>
             </Box>
@@ -443,7 +620,8 @@ const Inventory: React.FC = () => {
                   <TableCell>Current Stock</TableCell>
                   <TableCell>Unit</TableCell>
                   <TableCell>Min. Stock</TableCell>
-                  <TableCell>Unit Cost</TableCell>
+                  <TableCell>Buy Price</TableCell>
+                  <TableCell>Sell Price</TableCell>
                   <TableCell>Total Value</TableCell>
                   <TableCell>Last Updated</TableCell>
                   <TableCell>Expiry Date</TableCell>
@@ -454,7 +632,7 @@ const Inventory: React.FC = () => {
               <TableBody>
                 {filteredInventory.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={11} sx={{ textAlign: 'center', py: 6 }}>
+                    <TableCell colSpan={12} sx={{ textAlign: 'center', py: 6 }}>
                       <InventoryIcon sx={{ fontSize: 48, color: 'text.secondary', mb: 2 }} />
                       <Typography variant="h6" color="text.secondary">
                         No Inventory Items Found
@@ -483,8 +661,9 @@ const Inventory: React.FC = () => {
                       <TableCell>{item.currentStock}</TableCell>
                       <TableCell>{item.unit}</TableCell>
                       <TableCell>{item.minStock}</TableCell>
-                      <TableCell>${item.unitCost.toFixed(2)}</TableCell>
-                      <TableCell>${item.totalValue.toFixed(2)}</TableCell>
+                      <TableCell>Rs.{item.buyPrice.toFixed(2)}</TableCell>
+                      <TableCell>Rs.{item.sellPrice.toFixed(2)}</TableCell>
+                      <TableCell>Rs.{item.totalValue.toFixed(2)}</TableCell>
                       <TableCell>{item.lastUpdated}</TableCell>
                       <TableCell>{item.expiryDate || 'N/A'}</TableCell>
                       <TableCell>
@@ -695,16 +874,29 @@ const Inventory: React.FC = () => {
               <InputLabel>Category</InputLabel>
               <Select
                 value={addProductForm.category}
-                onChange={(e) => setAddProductForm({ ...addProductForm, category: e.target.value })}
+                onChange={(e) => {
+                  if (e.target.value === 'add_new_category') {
+                    setShowAddCategoryModal(true);
+                  } else {
+                    setAddProductForm({ ...addProductForm, category: e.target.value });
+                  }
+                }}
                 label="Category"
               >
-                <MenuItem value="Electronics">Electronics</MenuItem>
-                <MenuItem value="Clothing">Clothing</MenuItem>
-                <MenuItem value="Food">Food</MenuItem>
-                <MenuItem value="Beverages">Beverages</MenuItem>
-                <MenuItem value="Other">Other</MenuItem>
+                <MenuItem value="add_new_category">+ Add New Category</MenuItem>
+                {categories.map(cat => (
+                  <MenuItem key={cat} value={cat}>{cat}</MenuItem>
+                ))}
               </Select>
             </FormControl>
+
+            <TextField
+              fullWidth
+              label="Barcode"
+              value={addProductForm.barcode}
+              onChange={(e) => setAddProductForm({ ...addProductForm, barcode: e.target.value })}
+              sx={{ mb: 2 }}
+            />
 
             <Box sx={{ display: 'flex', gap: 2, mb: 2 }}>
               <TextField
@@ -732,23 +924,79 @@ const Inventory: React.FC = () => {
               </FormControl>
             </Box>
 
-            <TextField
-              fullWidth
-              label="Minimum Stock"
+             <Box sx={{ mb: 2 }}>
+               <input
+                 accept="image/*"
+                 style={{ display: 'none' }}
+                 id="product-photo"
+                 type="file"
+                 onChange={(e) => {
+                   const file = e.target.files ? e.target.files[0] : null;
+                   setAddProductForm({ ...addProductForm, photo: file });
+
+                   // Clean up previous preview URL
+                   if (photoPreview) {
+                     URL.revokeObjectURL(photoPreview);
+                   }
+
+                   // Create new preview URL
+                   if (file) {
+                     setPhotoPreview(URL.createObjectURL(file));
+                   } else {
+                     setPhotoPreview(null);
+                   }
+                 }}
+               />
+               <label htmlFor="product-photo">
+                 <Button variant="outlined" component="span" fullWidth>
+                   Upload Product Photo
+                 </Button>
+               </label>
+               {photoPreview && (
+                 <Box sx={{ mt: 2, textAlign: 'center' }}>
+                   <img
+                     src={photoPreview}
+                     alt="Product preview"
+                     style={{
+                       maxWidth: '100%',
+                       maxHeight: '200px',
+                       objectFit: 'contain',
+                       border: '1px solid #ddd',
+                       borderRadius: '8px'
+                     }}
+                   />
+                   <Typography variant="body2" sx={{ mt: 1 }}>
+                     {addProductForm.photo?.name}
+                   </Typography>
+                 </Box>
+               )}
+             </Box>
+
+             <TextField
+               fullWidth
+               label="Minimum Stock"
               type="number"
               value={addProductForm.minStock}
               onChange={(e) => setAddProductForm({ ...addProductForm, minStock: e.target.value })}
               sx={{ mb: 2 }}
             />
 
-            <TextField
-              fullWidth
-              label="Unit Cost"
-              type="number"
-              value={addProductForm.unitCost}
-              onChange={(e) => setAddProductForm({ ...addProductForm, unitCost: e.target.value })}
-              sx={{ mb: 2 }}
-            />
+            <Box sx={{ display: 'flex', gap: 2, mb: 2 }}>
+              <TextField
+                fullWidth
+                label="Buy Price"
+                type="number"
+                value={addProductForm.buyPrice}
+                onChange={(e) => setAddProductForm({ ...addProductForm, buyPrice: e.target.value })}
+              />
+              <TextField
+                fullWidth
+                label="Sell Price"
+                type="number"
+                value={addProductForm.sellPrice}
+                onChange={(e) => setAddProductForm({ ...addProductForm, sellPrice: e.target.value })}
+              />
+            </Box>
 
             <TextField
               fullWidth
@@ -763,6 +1011,67 @@ const Inventory: React.FC = () => {
         <DialogActions>
           <Button onClick={() => setShowAddModal(false)}>Cancel</Button>
           <Button onClick={handleAddProduct} variant="contained">Add Product</Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Add Category Modal */}
+      <Dialog open={showAddCategoryModal} onClose={() => setShowAddCategoryModal(false)} maxWidth="sm" fullWidth>
+        <DialogTitle>Manage Categories</DialogTitle>
+        <DialogContent>
+          <Box sx={{ pt: 2 }}>
+            {/* Existing Categories */}
+            <Typography variant="h6" sx={{ mb: 2 }}>Existing Categories</Typography>
+            <List sx={{ mb: 3 }}>
+              {categories.map((category) => (
+                <ListItem key={category} sx={{ border: '1px solid #e0e0e0', borderRadius: 1, mb: 1 }}>
+                  <ListItemText primary={category} />
+                  <ListItemSecondaryAction>
+                    <IconButton
+                      edge="end"
+                      onClick={() => openDeleteConfirm(category)}
+                      color="error"
+                      size="small"
+                    >
+                      <DeleteIcon />
+                    </IconButton>
+                  </ListItemSecondaryAction>
+                </ListItem>
+              ))}
+            </List>
+
+            {/* Add New Category */}
+            <Typography variant="h6" sx={{ mb: 2 }}>Add New Category</Typography>
+            <TextField
+              fullWidth
+              label="Category Name"
+              value={newCategoryName}
+              onChange={(e) => setNewCategoryName(e.target.value)}
+              sx={{ mb: 2 }}
+            />
+          </Box>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setShowAddCategoryModal(false)}>Cancel</Button>
+          <Button onClick={handleAddCategory} variant="contained">Add Category</Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Delete Category Confirmation Dialog */}
+      <Dialog open={showDeleteConfirm} onClose={() => setShowDeleteConfirm(false)} maxWidth="xs" fullWidth>
+        <DialogTitle>Delete Category</DialogTitle>
+        <DialogContent>
+          <Typography>
+            Are you sure you want to delete the category "{categoryToDelete}"?
+          </Typography>
+          {inventory.filter(item => item.category === categoryToDelete).length > 0 && (
+            <Typography variant="body2" color="warning.main" sx={{ mt: 1 }}>
+              Warning: {inventory.filter(item => item.category === categoryToDelete).length} product(s) are using this category.
+            </Typography>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setShowDeleteConfirm(false)}>Cancel</Button>
+          <Button onClick={handleDeleteCategory} variant="contained" color="error">Delete</Button>
         </DialogActions>
       </Dialog>
     </Box>

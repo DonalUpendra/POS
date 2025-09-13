@@ -9,13 +9,18 @@ import Sidebar from './components/Sidebar';
 import Header from './components/Header';
 import Dashboard from './components/Dashboard';
 import POS from './components/POS';
-import Products from './components/Products';
 import Inventory from './components/Inventory';
 import Customers from './components/Customers';
 import Suppliers from './components/Suppliers';
 import Orders from './components/Orders';
+import DisplayOrders from './components/DisplayOrders';
 import Users from './components/Users';
 import Labels from './components/Labels';
+import Login from './components/Login';
+import ProtectedRoute from './components/ProtectedRoute';
+
+// Context
+import { AuthProvider, useAuth } from './contexts/AuthContext';
 
 // Theme
 const theme = createTheme({
@@ -65,10 +70,12 @@ const theme = createTheme({
 const drawerWidth = 280;
 
 function AppContent() {
+  const { isAuthenticated } = useAuth();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const location = useLocation();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
+  const isExternalDisplay = location.pathname === '/externaldisplay';
 
   const handleDrawerToggle = () => {
     setMobileOpen(!mobileOpen);
@@ -105,74 +112,83 @@ function AppContent() {
 
   };
 
+  // Early return for unauthenticated users
+  if (!isAuthenticated) {
+    return <Login />;
+  }
+
   return (
     <Box sx={{ display: 'flex' }}>
       {/* Sidebar */}
-      <Drawer
-        variant={isMobile ? 'temporary' : 'permanent'}
-        open={isMobile ? mobileOpen : true}
-        onClose={handleDrawerToggle}
-        ModalProps={{
-          keepMounted: true, // Better open performance on mobile.
-        }}
-        sx={{
-          width: drawerWidth,
-          flexShrink: 0,
-          '& .MuiDrawer-paper': {
+      {!isExternalDisplay && (
+        <Drawer
+          variant={isMobile ? 'temporary' : 'permanent'}
+          open={isMobile ? mobileOpen : true}
+          onClose={handleDrawerToggle}
+          ModalProps={{
+            keepMounted: true, // Better open performance on mobile.
+          }}
+          sx={{
             width: drawerWidth,
-            boxSizing: 'border-box',
-            background: 'linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%)',
-            color: 'white',
-          },
-        }}
-      >
-        <Sidebar onClose={handleDrawerToggle} />
-      </Drawer>
+            flexShrink: 0,
+            '& .MuiDrawer-paper': {
+              width: drawerWidth,
+              boxSizing: 'border-box',
+              background: 'linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%)',
+              color: 'white',
+            },
+          }}
+        >
+          <Sidebar onClose={handleDrawerToggle} />
+        </Drawer>
+      )}
 
       {/* Main content */}
       <Box
         component="main"
         sx={{
           flexGrow: 1,
-          p: 3,
+          p: isExternalDisplay ? 0 : 3,
           height: '100vh',
-          background: 'linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%)',
+          background: isExternalDisplay ? 'white' : 'linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%)',
           display: 'flex',
           flexDirection: 'column',
-          width: { xs: '100%', md: `calc(100% - ${drawerWidth}px)` },
-          ml: { xs: 0, md: 0 },
+          width: isExternalDisplay ? '100%' : { xs: '100%', md: `calc(100% - ${drawerWidth}px)` },
+          ml: isExternalDisplay ? 0 : { xs: 0, md: 0 },
         }}
       >
         {/* Header */}
-        <AppBar
-          position="static"
-          elevation={0}
-          sx={{
-            background: 'rgba(255, 255, 255, 0.95)',
-            backdropFilter: 'blur(10px)',
-            color: 'text.primary',
-            mb: 3,
-            borderRadius: 3,
-          }}
-        >
-          <Toolbar>
-            {isMobile && (
-              <IconButton
-                color="inherit"
-                aria-label="open drawer"
-                edge="start"
-                onClick={handleDrawerToggle}
-                sx={{ mr: 2 }}
-              >
-                <MenuIcon />
-              </IconButton>
-            )}
-            <Header />
-          </Toolbar>
-        </AppBar>
+        {!isExternalDisplay && (
+          <AppBar
+            position="static"
+            elevation={0}
+            sx={{
+              background: 'rgba(255, 255, 255, 0.95)',
+              backdropFilter: 'blur(10px)',
+              color: 'text.primary',
+              mb: 3,
+              borderRadius: 3,
+            }}
+          >
+            <Toolbar>
+              {isMobile && (
+                <IconButton
+                  color="inherit"
+                  aria-label="open drawer"
+                  edge="start"
+                  onClick={handleDrawerToggle}
+                  sx={{ mr: 2 }}
+                >
+                  <MenuIcon />
+                </IconButton>
+              )}
+              <Header />
+            </Toolbar>
+          </AppBar>
+        )}
 
         {/* Page Content */}
-        <Box sx={{ mt: 2, flexGrow: 1, overflow: 'auto', width: '100%' }}>
+        <Box sx={{ mt: isExternalDisplay ? 0 : 2, flexGrow: 1, overflow: 'auto', width: '100%', height: isExternalDisplay ? '100vh' : 'auto' }}>
           {loading ? (
             <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%' }}>
               <Box sx={{ textAlign: 'center' }}>
@@ -182,18 +198,18 @@ function AppContent() {
             </Box>
           ) : (
             <Box sx={{ flexGrow: 1, width: '100%', maxWidth: '100%' }}>
-              
+
               <Routes>
-                <Route path="/" element={<Dashboard />} />
-                <Route path="/dashboard" element={<Dashboard />} />
-                <Route path="/pos" element={<POS />} />
-                <Route path="/products" element={<Products />} />
-                <Route path="/inventory" element={<Inventory />} />
-                <Route path="/customers" element={<Customers />} />
-                <Route path="/suppliers" element={<Suppliers />} />
-                <Route path="/orders" element={<Orders />} />
-                <Route path="/users" element={<Users />} />
-                <Route path="/labels" element={<Labels />} />
+                <Route path="/" element={<ProtectedRoute allowedRoles={['owner', 'manager', 'cashier']}><Dashboard /></ProtectedRoute>} />
+                <Route path="/dashboard" element={<ProtectedRoute allowedRoles={['owner', 'manager', 'cashier']}><Dashboard /></ProtectedRoute>} />
+                <Route path="/pos" element={<ProtectedRoute allowedRoles={['owner', 'manager', 'cashier']}><POS /></ProtectedRoute>} />
+                <Route path="/inventory" element={<ProtectedRoute allowedRoles={['owner', 'manager']}><Inventory /></ProtectedRoute>} />
+                <Route path="/customers" element={<ProtectedRoute allowedRoles={['owner', 'manager']}><Customers /></ProtectedRoute>} />
+                <Route path="/suppliers" element={<ProtectedRoute allowedRoles={['owner', 'manager']}><Suppliers /></ProtectedRoute>} />
+                <Route path="/orders" element={<ProtectedRoute allowedRoles={['owner', 'manager']}><Orders /></ProtectedRoute>} />
+                <Route path="/externaldisplay" element={<ProtectedRoute allowedRoles={['owner', 'manager', 'cashier']}><DisplayOrders /></ProtectedRoute>} />
+                <Route path="/users" element={<ProtectedRoute allowedRoles={['owner']}><Users /></ProtectedRoute>} />
+                <Route path="/labels" element={<ProtectedRoute allowedRoles={['owner', 'manager']}><Labels /></ProtectedRoute>} />
               </Routes>
             </Box>
           )}
@@ -207,9 +223,11 @@ function App() {
   return (
     <ThemeProvider theme={theme}>
       <CssBaseline />
-      <Router>
-        <AppContent />
-      </Router>
+      <AuthProvider>
+        <Router>
+          <AppContent />
+        </Router>
+      </AuthProvider>
     </ThemeProvider>
   );
 }

@@ -87,8 +87,7 @@ const POS: React.FC = () => {
   const subtotal = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
   const discountAmount = discountValue ? (discountType === 'percent' ? subtotal * (parseFloat(discountValue) / 100) : parseFloat(discountValue)) : 0;
   const discountedSubtotal = subtotal - discountAmount;
-  const tax = discountedSubtotal * 0.08;
-  const total = discountedSubtotal + tax;
+  const total = discountedSubtotal;
 
   const addToCart = (productId: string) => {
     const product = products.find(p => p.id === productId);
@@ -430,11 +429,6 @@ const POS: React.FC = () => {
                     <Typography>-${discountAmount.toFixed(2)}</Typography>
                   </Box>
                 )}
-                <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
-                  <Typography>Tax (8%)</Typography>
-                  <Typography>${tax.toFixed(2)}</Typography>
-                </Box>
-                <Divider sx={{ my: 1 }} />
                 <Box sx={{ display: 'flex', justifyContent: 'space-between', fontWeight: 600 }}>
                   <Typography variant="h6">Total</Typography>
                   <Typography variant="h6">${total.toFixed(2)}</Typography>

@@ -9,7 +9,6 @@ import Sidebar from './components/Sidebar';
 import Header from './components/Header';
 import Dashboard from './components/Dashboard';
 import POS from './components/POS';
-import Products from './components/Products';
 import Inventory from './components/Inventory';
 import Customers from './components/Customers';
 import Suppliers from './components/Suppliers';
@@ -187,7 +186,6 @@ function AppContent() {
                 <Route path="/" element={<Dashboard />} />
                 <Route path="/dashboard" element={<Dashboard />} />
                 <Route path="/pos" element={<POS />} />
-                <Route path="/products" element={<Products />} />
                 <Route path="/inventory" element={<Inventory />} />
                 <Route path="/customers" element={<Customers />} />
                 <Route path="/suppliers" element={<Suppliers />} />

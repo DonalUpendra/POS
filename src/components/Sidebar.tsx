@@ -16,7 +16,6 @@ import {
   TrendingUp as TrendingUpIcon,
   People as PeopleIcon,
   Inventory as InventoryIcon,
-  Category as CategoryIcon,
   LocalShipping as LocalShippingIcon,
   Label as LabelIcon,
   Settings as SettingsIcon,
@@ -34,12 +33,11 @@ const Sidebar: React.FC<SidebarProps> = ({ onClose }) => {
   const menuItems = [
     { text: 'Dashboard', icon: <HomeIcon />, path: '/dashboard' },
     { text: 'Sales', icon: <ShoppingCartIcon />, path: '/pos' },
-    { text: 'Reports', icon: <TrendingUpIcon />, path: '/orders' },
+    { text: 'All Oders', icon: <TrendingUpIcon />, path: '/orders' },
     { text: 'Customers', icon: <PeopleIcon />, path: '/customers' },
     { text: 'Inventory', icon: <InventoryIcon />, path: '/inventory' },
-    { text: 'Products', icon: <CategoryIcon />, path: '/products' },
     { text: 'Suppliers', icon: <LocalShippingIcon />, path: '/suppliers' },
-    { text: 'Labels', icon: <LabelIcon />, path: '/labels' },
+    { text: 'Labels and Printing', icon: <LabelIcon />, path: '/labels' },
     { text: 'Settings', icon: <SettingsIcon />, path: '/users' },
   ];
 

@@ -57,11 +57,12 @@ const POS: React.FC = () => {
     { id: '3', name: 'Sample Product 3', price: 9.99, stock: 100, category: 'Food' },
   ]);
 
-  const customers = [
+  const [customers, setCustomers] = useState([
     { id: '', name: 'Walk-in Customer' },
+    { id: 'add_new', name: 'Add New Customer' },
     { id: '1', name: 'John Doe', phone: '123-456-7890' },
     { id: '2', name: 'Jane Smith', phone: '987-654-3210' },
-  ];
+  ]);
   const [searchTerm, setSearchTerm] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('');
   const [customerSelect, setCustomerSelect] = useState('');
@@ -74,6 +75,9 @@ const POS: React.FC = () => {
   const [returnReceiptNumber, setReturnReceiptNumber] = useState('');
   const [returnNote, setReturnNote] = useState('');
   const [otherSubOption, setOtherSubOption] = useState('');
+  const [showAddCustomer, setShowAddCustomer] = useState(false);
+  const [newCustomerName, setNewCustomerName] = useState('');
+  const [newCustomerPhone, setNewCustomerPhone] = useState('');
 
   // Initialize POS on mount
   useEffect(() => {
@@ -240,6 +244,20 @@ const POS: React.FC = () => {
     alert(`Return functionality would be implemented here. Receipt: ${returnReceiptNumber}, Note: ${returnNote}`);
   };
 
+  const handleAddCustomer = () => {
+    if (!newCustomerName.trim()) {
+      alert('Name is required');
+      return;
+    }
+    const newId = Date.now().toString();
+    const newCustomer = { id: newId, name: newCustomerName, phone: newCustomerPhone };
+    setCustomers(prev => [...prev, newCustomer]);
+    setCustomerSelect(newId);
+    setNewCustomerName('');
+    setNewCustomerPhone('');
+    setShowAddCustomer(false);
+  };
+
   return (
     <Box sx={{ width: '100%', maxWidth: '100%', height: '100%', display: 'flex', flexDirection: 'column' }}>
       {/* Header */}
@@ -358,7 +376,32 @@ const POS: React.FC = () => {
                 options={customers}
                 getOptionLabel={(option) => option.name + (option.phone ? ` - ${option.phone}` : '')}
                 value={customers.find(c => c.id === customerSelect) || null}
-                onChange={(event, newValue) => setCustomerSelect(newValue ? newValue.id : '')}
+                onChange={(event, newValue) => {
+                  if (newValue && newValue.id === 'add_new') {
+                    setShowAddCustomer(true);
+                  } else {
+                    setCustomerSelect(newValue ? newValue.id : '');
+                  }
+                }}
+                renderOption={(props, option) => {
+                  const { key, ...otherProps } = props;
+                  return (
+                    <li key={key} {...otherProps}>
+                      {option.id === 'add_new' ? (
+                        <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                          <AddIcon sx={{ mr: 1, color: 'primary.main' }} />
+                          <Typography variant="body1" sx={{ fontWeight: 'bold' }}>
+                            {option.name}
+                          </Typography>
+                        </Box>
+                      ) : (
+                        <Typography variant="body1">
+                          {option.name + (option.phone ? ` - ${option.phone}` : '')}
+                        </Typography>
+                      )}
+                    </li>
+                  );
+                }}
                 renderInput={(params) => (
                   <TextField
                     {...params}
@@ -588,6 +631,34 @@ const POS: React.FC = () => {
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setShowReturns(false)}>Close</Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Add Customer Modal */}
+      <Dialog open={showAddCustomer} onClose={() => setShowAddCustomer(false)} maxWidth="sm" fullWidth>
+        <DialogTitle>Add New Customer</DialogTitle>
+        <DialogContent>
+          <TextField
+            fullWidth
+            label="Name"
+            value={newCustomerName}
+            onChange={(e) => setNewCustomerName(e.target.value)}
+            sx={{ mb: 2, mt: 1 }}
+            required
+          />
+          <TextField
+            fullWidth
+            label="Phone Number"
+            value={newCustomerPhone}
+            onChange={(e) => setNewCustomerPhone(e.target.value)}
+            sx={{ mb: 2 }}
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setShowAddCustomer(false)}>Cancel</Button>
+          <Button variant="contained" onClick={handleAddCustomer}>
+            Add Customer
+          </Button>
         </DialogActions>
       </Dialog>
     </Box>

@@ -22,6 +22,10 @@ import {
   DialogActions,
   IconButton,
   Chip,
+  List,
+  ListItem,
+  ListItemText,
+  ListItemSecondaryAction,
 } from '@mui/material';
 import {
   Edit as EditIcon,
@@ -33,6 +37,7 @@ import {
   Error as ErrorIcon,
   Assessment as AssessmentIcon,
   Add as AddIcon,
+  Delete as DeleteIcon,
 } from '@mui/icons-material';
 
 interface InventoryItem {
@@ -98,16 +103,98 @@ const Inventory: React.FC = () => {
   });
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
 
-  // Fetch inventory from backend
+  // Categories state
+  const [categories, setCategories] = useState<string[]>(['Electronics', 'Clothing', 'Food', 'Beverages', 'Other']);
+  const [showAddCategoryModal, setShowAddCategoryModal] = useState(false);
+  const [newCategoryName, setNewCategoryName] = useState('');
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [categoryToDelete, setCategoryToDelete] = useState<string>('');
+
+  // Mock inventory data
+  const mockInventoryData: InventoryItem[] = [
+    {
+      id: 1,
+      name: 'Laptop Dell Inspiron',
+      category: 'Electronics',
+      currentStock: 15,
+      minStock: 5,
+      buyPrice: 85000,
+      sellPrice: 95000,
+      totalValue: 1425000,
+      lastUpdated: '2024-01-15',
+      status: 'in_stock',
+      barcode: 'DELL001',
+      unit: 'pieces',
+      expiryDate: undefined
+    },
+    {
+      id: 2,
+      name: 'Wireless Mouse',
+      category: 'Electronics',
+      currentStock: 3,
+      minStock: 10,
+      buyPrice: 1200,
+      sellPrice: 1500,
+      totalValue: 4500,
+      lastUpdated: '2024-01-14',
+      status: 'low_stock',
+      barcode: 'MOUSE001',
+      unit: 'pieces',
+      expiryDate: undefined
+    },
+    {
+      id: 3,
+      name: 'Organic Rice 5kg',
+      category: 'Food',
+      currentStock: 0,
+      minStock: 20,
+      buyPrice: 2500,
+      sellPrice: 2800,
+      totalValue: 0,
+      lastUpdated: '2024-01-13',
+      status: 'out_of_stock',
+      barcode: 'RICE001',
+      unit: 'kg',
+      expiryDate: '2024-06-30'
+    },
+    {
+      id: 4,
+      name: 'Coca Cola 500ml',
+      category: 'Beverages',
+      currentStock: 45,
+      minStock: 30,
+      buyPrice: 150,
+      sellPrice: 200,
+      totalValue: 9000,
+      lastUpdated: '2024-01-12',
+      status: 'in_stock',
+      barcode: 'COKE001',
+      unit: 'bottles',
+      expiryDate: '2024-08-15'
+    },
+    {
+      id: 5,
+      name: 'T-Shirt Large',
+      category: 'Clothing',
+      currentStock: 8,
+      minStock: 15,
+      buyPrice: 800,
+      sellPrice: 1200,
+      totalValue: 9600,
+      lastUpdated: '2024-01-11',
+      status: 'low_stock',
+      barcode: 'TSHIRT001',
+      unit: 'pieces',
+      expiryDate: undefined
+    }
+  ];
+
+  // Fetch inventory from mock data
   const fetchInventory = async () => {
     try {
-      const response = await fetch('http://localhost:3001/api/inventory');
-      if (response.ok) {
-        const data = await response.json();
-        setInventory(data);
-      } else {
-        console.error('Failed to fetch inventory');
-      }
+      // Simulate API delay
+      await new Promise(resolve => setTimeout(resolve, 500));
+      setInventory(mockInventoryData);
     } catch (error) {
       console.error('Error fetching inventory:', error);
     }
@@ -144,22 +231,27 @@ const Inventory: React.FC = () => {
   const handleUpdateStock = async () => {
     if (!selectedItem) return;
     try {
-      const response = await fetch(`http://localhost:3001/api/inventory/${selectedItem.id}/stock`, {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          adjustment: parseFloat(updateForm.adjustment) || 0,
-        }),
-      });
-      if (response.ok) {
-        fetchInventory(); // Refresh the list
-        setShowUpdateModal(false);
-        resetUpdateForm();
-      } else {
-        console.error('Failed to update stock');
-      }
+      // Simulate API delay
+      await new Promise(resolve => setTimeout(resolve, 300));
+
+      // Update local state
+      setInventory(prevInventory =>
+        prevInventory.map(item =>
+          item.id === selectedItem.id
+            ? {
+                ...item,
+                currentStock: Math.max(0, item.currentStock + (parseFloat(updateForm.adjustment) || 0)),
+                totalValue: (Math.max(0, item.currentStock + (parseFloat(updateForm.adjustment) || 0))) * item.sellPrice,
+                lastUpdated: new Date().toISOString().split('T')[0],
+                status: (Math.max(0, item.currentStock + (parseFloat(updateForm.adjustment) || 0))) === 0 ? 'out_of_stock' :
+                       (Math.max(0, item.currentStock + (parseFloat(updateForm.adjustment) || 0))) < item.minStock ? 'low_stock' : 'in_stock'
+              }
+            : item
+        )
+      );
+
+      setShowUpdateModal(false);
+      resetUpdateForm();
     } catch (error) {
       console.error('Error updating stock:', error);
     }
@@ -168,22 +260,27 @@ const Inventory: React.FC = () => {
   const handleRemoveExpired = async () => {
     if (!selectedItem) return;
     try {
-      const response = await fetch(`http://localhost:3001/api/inventory/${selectedItem.id}/stock`, {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          adjustment: -(parseFloat(expiredForm.quantity) || 0),
-        }),
-      });
-      if (response.ok) {
-        fetchInventory(); // Refresh the list
-        setShowExpiredModal(false);
-        resetExpiredForm();
-      } else {
-        console.error('Failed to remove expired stock');
-      }
+      // Simulate API delay
+      await new Promise(resolve => setTimeout(resolve, 300));
+
+      // Update local state
+      setInventory(prevInventory =>
+        prevInventory.map(item =>
+          item.id === selectedItem.id
+            ? {
+                ...item,
+                currentStock: Math.max(0, item.currentStock - (parseFloat(expiredForm.quantity) || 0)),
+                totalValue: Math.max(0, item.currentStock - (parseFloat(expiredForm.quantity) || 0)) * item.sellPrice,
+                lastUpdated: new Date().toISOString().split('T')[0],
+                status: Math.max(0, item.currentStock - (parseFloat(expiredForm.quantity) || 0)) === 0 ? 'out_of_stock' :
+                       Math.max(0, item.currentStock - (parseFloat(expiredForm.quantity) || 0)) < item.minStock ? 'low_stock' : 'in_stock'
+              }
+            : item
+        )
+      );
+
+      setShowExpiredModal(false);
+      resetExpiredForm();
     } catch (error) {
       console.error('Error removing expired stock:', error);
     }
@@ -192,22 +289,27 @@ const Inventory: React.FC = () => {
   const handleRemoveDamaged = async () => {
     if (!selectedItem) return;
     try {
-      const response = await fetch(`http://localhost:3001/api/inventory/${selectedItem.id}/stock`, {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          adjustment: -(parseFloat(damagedForm.quantity) || 0),
-        }),
-      });
-      if (response.ok) {
-        fetchInventory(); // Refresh the list
-        setShowDamagedModal(false);
-        resetDamagedForm();
-      } else {
-        console.error('Failed to remove damaged stock');
-      }
+      // Simulate API delay
+      await new Promise(resolve => setTimeout(resolve, 300));
+
+      // Update local state
+      setInventory(prevInventory =>
+        prevInventory.map(item =>
+          item.id === selectedItem.id
+            ? {
+                ...item,
+                currentStock: Math.max(0, item.currentStock - (parseFloat(damagedForm.quantity) || 0)),
+                totalValue: Math.max(0, item.currentStock - (parseFloat(damagedForm.quantity) || 0)) * item.sellPrice,
+                lastUpdated: new Date().toISOString().split('T')[0],
+                status: Math.max(0, item.currentStock - (parseFloat(damagedForm.quantity) || 0)) === 0 ? 'out_of_stock' :
+                       Math.max(0, item.currentStock - (parseFloat(damagedForm.quantity) || 0)) < item.minStock ? 'low_stock' : 'in_stock'
+              }
+            : item
+        )
+      );
+
+      setShowDamagedModal(false);
+      resetDamagedForm();
     } catch (error) {
       console.error('Error removing damaged stock:', error);
     }
@@ -248,34 +350,77 @@ const Inventory: React.FC = () => {
 
   const handleAddProduct = async () => {
     try {
-      const response = await fetch('http://localhost:3001/api/inventory', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          name: addProductForm.name,
-          category: addProductForm.category,
-          currentStock: parseFloat(addProductForm.currentStock) || 0,
-          minStock: parseFloat(addProductForm.minStock) || 0,
-          buyPrice: parseFloat(addProductForm.buyPrice) || 0,
-          sellPrice: parseFloat(addProductForm.sellPrice) || 0,
-          barcode: addProductForm.barcode || '',
-          unit: addProductForm.unit,
-          photo: addProductForm.photo ? addProductForm.photo.name : null,
-          expiryDate: addProductForm.expiryDate || null
-        }),
-      });
-      if (response.ok) {
-        fetchInventory(); // Refresh the list
-        setShowAddModal(false);
-        resetAddProductForm();
-      } else {
-        console.error('Failed to add product');
-      }
+      // Simulate API delay
+      await new Promise(resolve => setTimeout(resolve, 300));
+
+      // Create new product
+      const newProduct: InventoryItem = {
+        id: Math.max(...inventory.map(item => item.id)) + 1, // Generate new ID
+        name: addProductForm.name,
+        category: addProductForm.category,
+        currentStock: parseFloat(addProductForm.currentStock) || 0,
+        minStock: parseFloat(addProductForm.minStock) || 0,
+        buyPrice: parseFloat(addProductForm.buyPrice) || 0,
+        sellPrice: parseFloat(addProductForm.sellPrice) || 0,
+        totalValue: (parseFloat(addProductForm.currentStock) || 0) * (parseFloat(addProductForm.sellPrice) || 0),
+        lastUpdated: new Date().toISOString().split('T')[0],
+        status: (parseFloat(addProductForm.currentStock) || 0) === 0 ? 'out_of_stock' :
+                (parseFloat(addProductForm.currentStock) || 0) < (parseFloat(addProductForm.minStock) || 0) ? 'low_stock' : 'in_stock',
+        barcode: addProductForm.barcode || '',
+        unit: addProductForm.unit,
+        photo: addProductForm.photo ? addProductForm.photo.name : undefined,
+        expiryDate: addProductForm.expiryDate || undefined
+      };
+
+      // Add to local state
+      setInventory(prevInventory => [...prevInventory, newProduct]);
+
+      setShowAddModal(false);
+      resetAddProductForm();
     } catch (error) {
       console.error('Error adding product:', error);
     }
+  };
+
+  const handleAddCategory = () => {
+    if (newCategoryName.trim()) {
+      setCategories(prev => [...prev, newCategoryName.trim()]);
+      setAddProductForm({ ...addProductForm, category: newCategoryName.trim() });
+      setNewCategoryName('');
+      setShowAddCategoryModal(false);
+    }
+  };
+
+  const handleDeleteCategory = () => {
+    if (categoryToDelete) {
+      // Check if category is being used by any products
+      const productsUsingCategory = inventory.filter(item => item.category === categoryToDelete);
+
+      if (productsUsingCategory.length > 0) {
+        // If category is in use, show warning but still allow deletion
+        alert(`Warning: ${productsUsingCategory.length} product(s) are using this category. Deleting it will not remove the products, but they will keep the category name.`);
+      }
+
+      setCategories(prev => prev.filter(cat => cat !== categoryToDelete));
+
+      // If the deleted category was selected in the add product form, clear it
+      if (addProductForm.category === categoryToDelete) {
+        setAddProductForm({ ...addProductForm, category: '' });
+      }
+
+      // If the deleted category was selected in the filter, clear it
+      if (categoryFilter === categoryToDelete) {
+        setCategoryFilter('');
+      }
+
+      setShowDeleteConfirm(false);
+      setCategoryToDelete('');
+    }
+  };
+
+  const openDeleteConfirm = (category: string) => {
+    setCategoryToDelete(category);
+    setShowDeleteConfirm(true);
   };
 
   const openUpdateModal = (item: InventoryItem) => {
@@ -434,9 +579,9 @@ const Inventory: React.FC = () => {
                   label="Category"
                 >
                   <MenuItem value="">All Categories</MenuItem>
-                  <MenuItem value="Electronics">Electronics</MenuItem>
-                  <MenuItem value="Clothing">Clothing</MenuItem>
-                  <MenuItem value="Food">Food</MenuItem>
+                  {categories.map(cat => (
+                    <MenuItem key={cat} value={cat}>{cat}</MenuItem>
+                  ))}
                 </Select>
               </FormControl>
             </Box>
@@ -729,14 +874,19 @@ const Inventory: React.FC = () => {
               <InputLabel>Category</InputLabel>
               <Select
                 value={addProductForm.category}
-                onChange={(e) => setAddProductForm({ ...addProductForm, category: e.target.value })}
+                onChange={(e) => {
+                  if (e.target.value === 'add_new_category') {
+                    setShowAddCategoryModal(true);
+                  } else {
+                    setAddProductForm({ ...addProductForm, category: e.target.value });
+                  }
+                }}
                 label="Category"
               >
-                <MenuItem value="Electronics">Electronics</MenuItem>
-                <MenuItem value="Clothing">Clothing</MenuItem>
-                <MenuItem value="Food">Food</MenuItem>
-                <MenuItem value="Beverages">Beverages</MenuItem>
-                <MenuItem value="Other">Other</MenuItem>
+                <MenuItem value="add_new_category">+ Add New Category</MenuItem>
+                {categories.map(cat => (
+                  <MenuItem key={cat} value={cat}>{cat}</MenuItem>
+                ))}
               </Select>
             </FormControl>
 
@@ -861,6 +1011,67 @@ const Inventory: React.FC = () => {
         <DialogActions>
           <Button onClick={() => setShowAddModal(false)}>Cancel</Button>
           <Button onClick={handleAddProduct} variant="contained">Add Product</Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Add Category Modal */}
+      <Dialog open={showAddCategoryModal} onClose={() => setShowAddCategoryModal(false)} maxWidth="sm" fullWidth>
+        <DialogTitle>Manage Categories</DialogTitle>
+        <DialogContent>
+          <Box sx={{ pt: 2 }}>
+            {/* Existing Categories */}
+            <Typography variant="h6" sx={{ mb: 2 }}>Existing Categories</Typography>
+            <List sx={{ mb: 3 }}>
+              {categories.map((category) => (
+                <ListItem key={category} sx={{ border: '1px solid #e0e0e0', borderRadius: 1, mb: 1 }}>
+                  <ListItemText primary={category} />
+                  <ListItemSecondaryAction>
+                    <IconButton
+                      edge="end"
+                      onClick={() => openDeleteConfirm(category)}
+                      color="error"
+                      size="small"
+                    >
+                      <DeleteIcon />
+                    </IconButton>
+                  </ListItemSecondaryAction>
+                </ListItem>
+              ))}
+            </List>
+
+            {/* Add New Category */}
+            <Typography variant="h6" sx={{ mb: 2 }}>Add New Category</Typography>
+            <TextField
+              fullWidth
+              label="Category Name"
+              value={newCategoryName}
+              onChange={(e) => setNewCategoryName(e.target.value)}
+              sx={{ mb: 2 }}
+            />
+          </Box>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setShowAddCategoryModal(false)}>Cancel</Button>
+          <Button onClick={handleAddCategory} variant="contained">Add Category</Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Delete Category Confirmation Dialog */}
+      <Dialog open={showDeleteConfirm} onClose={() => setShowDeleteConfirm(false)} maxWidth="xs" fullWidth>
+        <DialogTitle>Delete Category</DialogTitle>
+        <DialogContent>
+          <Typography>
+            Are you sure you want to delete the category "{categoryToDelete}"?
+          </Typography>
+          {inventory.filter(item => item.category === categoryToDelete).length > 0 && (
+            <Typography variant="body2" color="warning.main" sx={{ mt: 1 }}>
+              Warning: {inventory.filter(item => item.category === categoryToDelete).length} product(s) are using this category.
+            </Typography>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setShowDeleteConfirm(false)}>Cancel</Button>
+          <Button onClick={handleDeleteCategory} variant="contained" color="error">Delete</Button>
         </DialogActions>
       </Dialog>
     </Box>

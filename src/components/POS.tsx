@@ -16,7 +16,6 @@ import {
   DialogTitle,
   DialogContent,
   DialogActions,
-  Divider,
   Autocomplete,
 } from '@mui/material';
 import {
@@ -376,7 +375,7 @@ const POS: React.FC = () => {
                 options={customers}
                 getOptionLabel={(option) => option.name + (option.phone ? ` - ${option.phone}` : '')}
                 value={customers.find(c => c.id === customerSelect) || null}
-                onChange={(event, newValue) => {
+                onChange={(_event, newValue) => {
                   if (newValue && newValue.id === 'add_new') {
                     setShowAddCustomer(true);
                   } else {

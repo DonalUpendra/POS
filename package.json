@@ -1,6 +1,5 @@
 {
   "name": "react-pos",
-  "homepage": "https://naszaro.com/pos",
   "private": true,
   "version": "0.0.0",
   "type": "module",

@@ -8,7 +8,7 @@ export interface User {
 
 interface AuthContextType {
   user: User | null;
-  login: (username: string, password: string, role: string) => boolean;
+  login: (username: string, password: string, role: string) => Promise<boolean>;
   logout: () => void;
   isAuthenticated: boolean;
 }
@@ -38,25 +38,36 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     }
   }, []);
 
-  const login = (username: string, password: string, role: string): boolean => {
-    // Simple demo authentication - in real app, this would be API call
-    const validCredentials = [
-      { username: 'admin', password: 'admin', role: 'owner' },
-      { username: 'manager', password: 'manager', role: 'manager' },
-      { username: 'cashier', password: 'cashier', role: 'cashier' },
-    ];
+  const login = async (username: string, password: string, role: string): Promise<boolean> => {
+    try {
+      const response = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ username, password, role }),
+      });
 
-    const foundUser = validCredentials.find(
-      (cred) => cred.username === username && cred.password === password && cred.role === role
-    );
+      if (!response.ok) {
+        return false;
+      }
 
-    if (foundUser) {
-      const userData: User = { username: foundUser.username, role: foundUser.role as User['role'] };
-      setUser(userData);
-      localStorage.setItem('user', JSON.stringify(userData));
-      return true;
+      const data = await response.json();
+      if (data.success) {
+        const userData: User = {
+          username: data.data.user.username,
+          role: data.data.user.role as User['role']
+        };
+        setUser(userData);
+        localStorage.setItem('user', JSON.stringify(userData));
+        localStorage.setItem('token', data.data.token);
+        return true;
+      }
+      return false;
+    } catch (error) {
+      console.error('Login error:', error);
+      return false;
     }
-    return false;
   };
 
   const logout = () => {

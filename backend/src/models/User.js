@@ -46,12 +46,28 @@ class User {
 
   static async update(id, userData) {
     const pool = getPool();
-    const { username, role, email, full_name, is_active } = userData;
+    const allowedFields = ['username', 'role', 'email', 'full_name', 'is_active'];
+    const updates = [];
+    const values = [];
 
-    const [result] = await pool.execute(
-      'UPDATE users SET username = ?, role = ?, email = ?, full_name = ?, is_active = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?',
-      [username, role, email, full_name, is_active, id]
-    );
+    // Build dynamic update query based on provided fields
+    for (const [key, value] of Object.entries(userData)) {
+      if (allowedFields.includes(key) && value !== undefined) {
+        updates.push(`${key} = ?`);
+        values.push(value);
+      }
+    }
+
+    if (updates.length === 0) {
+      throw new Error('No valid fields provided for update');
+    }
+
+    // Always update the updated_at timestamp
+    updates.push('updated_at = CURRENT_TIMESTAMP');
+    values.push(id);
+
+    const query = `UPDATE users SET ${updates.join(', ')} WHERE id = ?`;
+    const [result] = await pool.execute(query, values);
 
     return result.affectedRows > 0;
   }

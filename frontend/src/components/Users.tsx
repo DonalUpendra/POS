@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Box,
   Typography,
@@ -23,6 +23,8 @@ import {
   DialogActions,
   IconButton,
   Chip,
+  Alert,
+  CircularProgress,
 } from '@mui/material';
 import {
   Add as AddIcon,
@@ -37,36 +39,24 @@ import {
   LockReset as LockResetIcon,
   ToggleOn as ToggleOnIcon,
 } from '@mui/icons-material';
+import { useAuth } from '../contexts/AuthContext';
 
 interface User {
   id: string;
-  name: string;
   username: string;
+  role: 'owner' | 'manager' | 'cashier';
   email?: string;
-  employeeId?: string;
-  role: 'staff' | 'manager' | 'admin';
-  status: 'active' | 'inactive';
-  lastLogin?: string;
-  created: string;
-  address?: string;
-  phone?: string;
+  full_name?: string;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
 }
 
 const Users: React.FC = () => {
-  const [users] = useState<User[]>([
-    {
-      id: '1',
-      name: 'Admin User',
-      username: 'admin',
-      email: 'admin@example.com',
-      employeeId: 'EMP001',
-      role: 'admin',
-      status: 'active',
-      lastLogin: '2024-12-15 14:30',
-      created: '2024-01-01',
-      phone: '123-456-7890'
-    }
-  ]);
+  const { user: currentUser } = useAuth();
+  const [users, setUsers] = useState<User[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   const [searchTerm, setSearchTerm] = useState('');
   const [roleFilter, setRoleFilter] = useState('');
@@ -77,19 +67,89 @@ const Users: React.FC = () => {
   const [showActivityModal, setShowActivityModal] = useState(false);
   const [editingUser, setEditingUser] = useState<User | null>(null);
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+
+  // API functions
+  const fetchUsers = async () => {
+    try {
+      setLoading(true);
+      const token = localStorage.getItem('token');
+      if (!token) {
+        throw new Error('Authentication required. Please log in again.');
+      }
+
+      const response = await fetch('/api/users', {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+
+      if (!response.ok) {
+        if (response.status === 401) {
+          throw new Error('Authentication expired. Please log in again.');
+        }
+        throw new Error('Failed to fetch users');
+      }
+
+      const data = await response.json();
+      setUsers(data.data || []);
+      setError(null);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to fetch users');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const createUser = async (userData: any) => {
+    try {
+      setSubmitting(true);
+      const token = localStorage.getItem('token');
+      if (!token) {
+        throw new Error('Authentication required. Please log in again.');
+      }
+
+      const response = await fetch('/api/users', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify(userData),
+      });
+
+      if (!response.ok) {
+        if (response.status === 401) {
+          throw new Error('Authentication expired. Please log in again.');
+        }
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Failed to create user');
+      }
+
+      const data = await response.json();
+      setUsers(prev => [...prev, data.data]);
+      return data;
+    } catch (err) {
+      throw err;
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  useEffect(() => {
+    if (currentUser?.role === 'owner') {
+      fetchUsers();
+    }
+  }, [currentUser]);
 
   // Form states
   const [userForm, setUserForm] = useState({
-    name: '',
     username: '',
-    email: '',
-    employeeId: '',
     password: '',
     confirmPassword: '',
-    role: 'staff',
-    phone: '',
-    address: '',
-    notes: ''
+    role: 'cashier' as 'owner' | 'manager' | 'cashier',
+    email: '',
+    full_name: ''
   });
 
   const [resetForm, setResetForm] = useState({
@@ -99,53 +159,170 @@ const Users: React.FC = () => {
   });
 
   const filteredUsers = users.filter(user => {
-    const matchesSearch = user.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         user.username.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         (user.email && user.email.toLowerCase().includes(searchTerm.toLowerCase()));
+    const matchesSearch = user.full_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                          user.username.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                          (user.email && user.email.toLowerCase().includes(searchTerm.toLowerCase()));
     const matchesRole = !roleFilter || user.role === roleFilter;
-    const matchesStatus = !statusFilter || user.status === statusFilter;
+    const matchesStatus = !statusFilter || (user.is_active ? 'active' : 'inactive') === statusFilter;
 
     return matchesSearch && matchesRole && matchesStatus;
   });
 
   const summaryStats = {
     totalUsers: users.length,
-    activeUsers: users.filter(user => user.status === 'active').length,
-    admins: users.filter(user => user.role === 'admin').length,
+    activeUsers: users.filter(user => user.is_active).length,
+    owners: users.filter(user => user.role === 'owner').length,
     newThisMonth: users.filter(user =>
-      new Date(user.created) > new Date(new Date().getFullYear(), new Date().getMonth() - 1, 1)
+      new Date(user.created_at) > new Date(new Date().getFullYear(), new Date().getMonth() - 1, 1)
     ).length
   };
 
-  const handleAddUser = () => {
+  const handleAddUser = async () => {
     if (userForm.password !== userForm.confirmPassword) {
       alert('Passwords do not match!');
       return;
     }
-    console.log('Adding user:', userForm);
-    setShowAddModal(false);
-    resetUserForm();
+
+    try {
+      const userData = {
+        username: userForm.username,
+        password: userForm.password,
+        role: userForm.role,
+        email: userForm.email,
+        full_name: userForm.full_name
+      };
+
+      await createUser(userData);
+      setShowAddModal(false);
+      resetUserForm();
+      alert('User created successfully!');
+    } catch (error) {
+      alert(error instanceof Error ? error.message : 'Failed to create user');
+    }
   };
 
-  const handleEditUser = () => {
-    console.log('Editing user:', editingUser?.id, userForm);
-    setShowEditModal(false);
-    resetUserForm();
+  const handleEditUser = async () => {
+    if (!editingUser) return;
+
+    try {
+      setSubmitting(true);
+      const token = localStorage.getItem('token');
+      if (!token) {
+        throw new Error('Authentication required. Please log in again.');
+      }
+
+      const response = await fetch(`/api/users/${editingUser.id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          username: userForm.username,
+          role: userForm.role,
+          email: userForm.email,
+          full_name: userForm.full_name
+        }),
+      });
+
+      if (!response.ok) {
+        if (response.status === 401) {
+          throw new Error('Authentication expired. Please log in again.');
+        }
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Failed to update user');
+      }
+
+      // Refresh users list
+      await fetchUsers();
+      setShowEditModal(false);
+      resetUserForm();
+      alert('User updated successfully!');
+    } catch (error) {
+      alert(error instanceof Error ? error.message : 'Failed to update user');
+    } finally {
+      setSubmitting(false);
+    }
   };
 
-  const handleResetPassword = () => {
+  const handleResetPassword = async () => {
+    if (!selectedUser) return;
+
     if (resetForm.newPassword !== resetForm.confirmNewPassword) {
       alert('Passwords do not match!');
       return;
     }
-    console.log('Resetting password for:', selectedUser?.id, resetForm);
-    setShowResetModal(false);
-    resetResetForm();
+
+    try {
+      setSubmitting(true);
+      const token = localStorage.getItem('token');
+      if (!token) {
+        throw new Error('Authentication required. Please log in again.');
+      }
+
+      const response = await fetch(`/api/users/${selectedUser.id}/password`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          newPassword: resetForm.newPassword
+        }),
+      });
+
+      if (!response.ok) {
+        if (response.status === 401) {
+          throw new Error('Authentication expired. Please log in again.');
+        }
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Failed to reset password');
+      }
+
+      setShowResetModal(false);
+      resetResetForm();
+      alert('Password reset successfully!');
+    } catch (error) {
+      alert(error instanceof Error ? error.message : 'Failed to reset password');
+    } finally {
+      setSubmitting(false);
+    }
   };
 
-  const handleDeleteUser = (userId: string) => {
-    if (window.confirm('Are you sure you want to delete this user?')) {
-      console.log('Deleting user:', userId);
+  const handleDeleteUser = async (userId: string) => {
+    if (!window.confirm('Are you sure you want to delete this user? This action cannot be undone.')) {
+      return;
+    }
+
+    try {
+      setSubmitting(true);
+      const token = localStorage.getItem('token');
+      if (!token) {
+        throw new Error('Authentication required. Please log in again.');
+      }
+
+      const response = await fetch(`/api/users/${userId}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+
+      if (!response.ok) {
+        if (response.status === 401) {
+          throw new Error('Authentication expired. Please log in again.');
+        }
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Failed to delete user');
+      }
+
+      // Refresh users list
+      await fetchUsers();
+      alert('User deleted successfully!');
+    } catch (error) {
+      alert(error instanceof Error ? error.message : 'Failed to delete user');
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -154,24 +331,87 @@ const Users: React.FC = () => {
     setShowActivityModal(true);
   };
 
-  const handleToggleStatus = (userId: string) => {
-    if (window.confirm('Toggle user status?')) {
-      console.log('Toggling status for user:', userId);
+  const handleToggleStatus = async (userId: string) => {
+    if (!window.confirm('Are you sure you want to toggle this user\'s status?')) {
+      return;
+    }
+
+    try {
+      setSubmitting(true);
+      const token = localStorage.getItem('token');
+      if (!token) {
+        throw new Error('Authentication required. Please log in again.');
+      }
+
+      const response = await fetch(`/api/users/${userId}/status`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+
+      if (!response.ok) {
+        if (response.status === 401) {
+          throw new Error('Authentication expired. Please log in again.');
+        }
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Failed to toggle user status');
+      }
+
+      const data = await response.json();
+      // Refresh users list
+      await fetchUsers();
+      alert(data.message);
+    } catch (error) {
+      alert(error instanceof Error ? error.message : 'Failed to toggle user status');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleExportUsers = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      if (!token) {
+        throw new Error('Authentication required. Please log in again.');
+      }
+
+      const response = await fetch('/api/users/export', {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+
+      if (!response.ok) {
+        if (response.status === 401) {
+          throw new Error('Authentication expired. Please log in again.');
+        }
+        throw new Error('Failed to export users');
+      }
+
+      // Create download link
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'users.csv';
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+    } catch (error) {
+      alert(error instanceof Error ? error.message : 'Failed to export users');
     }
   };
 
   const resetUserForm = () => {
     setUserForm({
-      name: '',
       username: '',
-      email: '',
-      employeeId: '',
       password: '',
       confirmPassword: '',
-      role: 'staff',
-      phone: '',
-      address: '',
-      notes: ''
+      role: 'cashier',
+      email: '',
+      full_name: ''
     });
   };
 
@@ -186,16 +426,12 @@ const Users: React.FC = () => {
   const openEditModal = (user: User) => {
     setEditingUser(user);
     setUserForm({
-      name: user.name,
       username: user.username,
-      email: user.email || '',
-      employeeId: user.employeeId || '',
       password: '',
       confirmPassword: '',
       role: user.role,
-      phone: user.phone || '',
-      address: user.address || '',
-      notes: ''
+      email: user.email || '',
+      full_name: user.full_name || ''
     });
     setShowEditModal(true);
   };
@@ -205,28 +441,41 @@ const Users: React.FC = () => {
     setShowResetModal(true);
   };
 
-  const generateEmployeeId = () => {
-    const employeeId = 'EMP' + Date.now().toString().slice(-6);
-    setUserForm({ ...userForm, employeeId });
-  };
+  // Removed generateEmployeeId as we don't use employeeId
 
   const getRoleColor = (role: string) => {
     switch (role) {
-      case 'admin': return 'error';
+      case 'owner': return 'error';
       case 'manager': return 'warning';
-      case 'staff': return 'primary';
+      case 'cashier': return 'primary';
       default: return 'default';
     }
   };
 
   const getRoleLabel = (role: string) => {
     switch (role) {
-      case 'admin': return 'Administrator';
+      case 'owner': return 'Owner';
       case 'manager': return 'Manager';
-      case 'staff': return 'Staff';
+      case 'cashier': return 'Cashier';
       default: return role;
     }
   };
+
+  if (loading) {
+    return (
+      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '400px' }}>
+        <CircularProgress />
+      </Box>
+    );
+  }
+
+  if (error) {
+    return (
+      <Box sx={{ p: 3 }}>
+        <Alert severity="error">{error}</Alert>
+      </Box>
+    );
+  }
 
   return (
     <Box sx={{ width: '100%', maxWidth: '100%' }}>
@@ -235,9 +484,11 @@ const Users: React.FC = () => {
         <Typography variant="h4" component="h1" sx={{ fontWeight: 800 }}>
           User Management
         </Typography>
-        <Button variant="contained" startIcon={<AddIcon />} onClick={() => setShowAddModal(true)}>
-          Add User
-        </Button>
+        {currentUser?.role === 'owner' && (
+          <Button variant="contained" startIcon={<AddIcon />} onClick={() => setShowAddModal(true)}>
+            Add User
+          </Button>
+        )}
       </Box>
 
       {/* Statistics Cards */}
@@ -285,10 +536,10 @@ const Users: React.FC = () => {
               </Typography>
             </Box>
             <Typography variant="h4" sx={{ fontWeight: 600 }}>
-              {summaryStats.admins}
+              {summaryStats.owners}
             </Typography>
             <Typography variant="body2" color="text.secondary">
-              Admin privileges
+              Owner privileges
             </Typography>
           </CardContent>
         </Card>
@@ -335,9 +586,9 @@ const Users: React.FC = () => {
                   label="Role"
                 >
                   <MenuItem value="">All Roles</MenuItem>
-                  <MenuItem value="admin">Administrator</MenuItem>
+                  <MenuItem value="owner">Owner</MenuItem>
                   <MenuItem value="manager">Manager</MenuItem>
-                  <MenuItem value="staff">Staff</MenuItem>
+                  <MenuItem value="cashier">Cashier</MenuItem>
                 </Select>
               </FormControl>
             </Box>
@@ -356,7 +607,13 @@ const Users: React.FC = () => {
               </FormControl>
             </Box>
             <Box sx={{ flex: { xs: '1 1 100%', md: '1 1 150px' } }}>
-              <Button variant="outlined" startIcon={<DownloadIcon />} fullWidth>
+              <Button
+                variant="outlined"
+                startIcon={<DownloadIcon />}
+                fullWidth
+                onClick={handleExportUsers}
+                disabled={loading}
+              >
                 Export
               </Button>
             </Box>
@@ -403,13 +660,8 @@ const Users: React.FC = () => {
                       <TableCell>
                         <Box>
                           <Typography variant="body1" sx={{ fontWeight: 600 }}>
-                            {user.name}
+                            {user.full_name || user.username}
                           </Typography>
-                          {user.employeeId && (
-                            <Typography variant="body2" color="text.secondary">
-                              ID: {user.employeeId}
-                            </Typography>
-                          )}
                         </Box>
                       </TableCell>
                       <TableCell>{user.username}</TableCell>
@@ -423,13 +675,13 @@ const Users: React.FC = () => {
                       </TableCell>
                       <TableCell>
                         <Chip
-                          label={user.status}
-                          color={user.status === 'active' ? 'success' : 'default'}
+                          label={user.is_active ? 'Active' : 'Inactive'}
+                          color={user.is_active ? 'success' : 'default'}
                           size="small"
                         />
                       </TableCell>
-                      <TableCell>{user.lastLogin || '-'}</TableCell>
-                      <TableCell>{user.created}</TableCell>
+                      <TableCell>-</TableCell>
+                      <TableCell>{new Date(user.created_at).toLocaleDateString()}</TableCell>
                       <TableCell>
                         <IconButton size="small" onClick={() => openEditModal(user)}>
                           <EditIcon />
@@ -464,9 +716,8 @@ const Users: React.FC = () => {
             <TextField
               fullWidth
               label="Full Name"
-              value={userForm.name}
-              onChange={(e) => setUserForm({ ...userForm, name: e.target.value })}
-              required
+              value={userForm.full_name}
+              onChange={(e) => setUserForm({ ...userForm, full_name: e.target.value })}
             />
             <TextField
               fullWidth
@@ -482,18 +733,6 @@ const Users: React.FC = () => {
               value={userForm.email}
               onChange={(e) => setUserForm({ ...userForm, email: e.target.value })}
             />
-            <Box sx={{ display: 'flex', gap: 1 }}>
-              <TextField
-                fullWidth
-                label="Employee ID"
-                value={userForm.employeeId}
-                onChange={(e) => setUserForm({ ...userForm, employeeId: e.target.value })}
-                placeholder="Auto-generated if empty"
-              />
-              <Button variant="outlined" onClick={generateEmployeeId}>
-                Generate
-              </Button>
-            </Box>
             <TextField
               fullWidth
               label="Password"
@@ -514,44 +753,22 @@ const Users: React.FC = () => {
               <InputLabel>Role</InputLabel>
               <Select
                 value={userForm.role}
-                onChange={(e) => setUserForm({ ...userForm, role: e.target.value })}
+                onChange={(e) => setUserForm({ ...userForm, role: e.target.value as 'owner' | 'manager' | 'cashier' })}
                 label="Role"
                 required
               >
-                <MenuItem value="staff">Staff</MenuItem>
+                <MenuItem value="cashier">Cashier</MenuItem>
                 <MenuItem value="manager">Manager</MenuItem>
-                <MenuItem value="admin">Administrator</MenuItem>
+                <MenuItem value="owner">Owner</MenuItem>
               </Select>
             </FormControl>
-            <TextField
-              fullWidth
-              label="Phone"
-              value={userForm.phone}
-              onChange={(e) => setUserForm({ ...userForm, phone: e.target.value })}
-            />
-            <TextField
-              fullWidth
-              label="Address"
-              value={userForm.address}
-              onChange={(e) => setUserForm({ ...userForm, address: e.target.value })}
-              placeholder="Street address"
-            />
-            <Box sx={{ gridColumn: '1 / -1' }}>
-              <TextField
-                fullWidth
-                label="Notes"
-                multiline
-                rows={3}
-                value={userForm.notes}
-                onChange={(e) => setUserForm({ ...userForm, notes: e.target.value })}
-                placeholder="Additional notes about the user"
-              />
-            </Box>
           </Box>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setShowAddModal(false)}>Cancel</Button>
-          <Button onClick={handleAddUser} variant="contained">Add User</Button>
+          <Button onClick={() => setShowAddModal(false)} disabled={submitting}>Cancel</Button>
+          <Button onClick={handleAddUser} variant="contained" disabled={submitting}>
+            {submitting ? 'Adding...' : 'Add User'}
+          </Button>
         </DialogActions>
       </Dialog>
 
@@ -563,9 +780,8 @@ const Users: React.FC = () => {
             <TextField
               fullWidth
               label="Full Name"
-              value={userForm.name}
-              onChange={(e) => setUserForm({ ...userForm, name: e.target.value })}
-              required
+              value={userForm.full_name}
+              onChange={(e) => setUserForm({ ...userForm, full_name: e.target.value })}
             />
             <TextField
               fullWidth
@@ -581,52 +797,26 @@ const Users: React.FC = () => {
               value={userForm.email}
               onChange={(e) => setUserForm({ ...userForm, email: e.target.value })}
             />
-            <TextField
-              fullWidth
-              label="Employee ID"
-              value={userForm.employeeId}
-              onChange={(e) => setUserForm({ ...userForm, employeeId: e.target.value })}
-            />
             <FormControl fullWidth>
               <InputLabel>Role</InputLabel>
               <Select
                 value={userForm.role}
-                onChange={(e) => setUserForm({ ...userForm, role: e.target.value })}
+                onChange={(e) => setUserForm({ ...userForm, role: e.target.value as 'owner' | 'manager' | 'cashier' })}
                 label="Role"
                 required
               >
-                <MenuItem value="staff">Staff</MenuItem>
+                <MenuItem value="cashier">Cashier</MenuItem>
                 <MenuItem value="manager">Manager</MenuItem>
-                <MenuItem value="admin">Administrator</MenuItem>
+                <MenuItem value="owner">Owner</MenuItem>
               </Select>
             </FormControl>
-            <TextField
-              fullWidth
-              label="Phone"
-              value={userForm.phone}
-              onChange={(e) => setUserForm({ ...userForm, phone: e.target.value })}
-            />
-            <TextField
-              fullWidth
-              label="Address"
-              value={userForm.address}
-              onChange={(e) => setUserForm({ ...userForm, address: e.target.value })}
-            />
-            <Box sx={{ gridColumn: '1 / -1' }}>
-              <TextField
-                fullWidth
-                label="Notes"
-                multiline
-                rows={3}
-                value={userForm.notes}
-                onChange={(e) => setUserForm({ ...userForm, notes: e.target.value })}
-              />
-            </Box>
           </Box>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setShowEditModal(false)}>Cancel</Button>
-          <Button onClick={handleEditUser} variant="contained">Update User</Button>
+          <Button onClick={() => setShowEditModal(false)} disabled={submitting}>Cancel</Button>
+          <Button onClick={handleEditUser} variant="contained" disabled={submitting}>
+            {submitting ? 'Updating...' : 'Update User'}
+          </Button>
         </DialogActions>
       </Dialog>
 
@@ -636,7 +826,7 @@ const Users: React.FC = () => {
         <DialogContent>
           <Box sx={{ pt: 2 }}>
             <Typography variant="h6" sx={{ mb: 2 }}>
-              {selectedUser?.name}
+              {selectedUser?.full_name || selectedUser?.username}
             </Typography>
 
             <TextField
@@ -671,8 +861,10 @@ const Users: React.FC = () => {
           </Box>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setShowResetModal(false)}>Cancel</Button>
-          <Button onClick={handleResetPassword} variant="contained">Reset Password</Button>
+          <Button onClick={() => setShowResetModal(false)} disabled={submitting}>Cancel</Button>
+          <Button onClick={handleResetPassword} variant="contained" disabled={submitting}>
+            {submitting ? 'Resetting...' : 'Reset Password'}
+          </Button>
         </DialogActions>
       </Dialog>
 

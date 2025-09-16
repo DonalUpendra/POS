@@ -206,7 +206,7 @@ INSERT INTO categories (name, description) VALUES
 
 -- Insert default admin user (password: admin123)
 INSERT INTO users (username, password_hash, role, email, full_name) VALUES
-('admin', '$2b$10$rOz8vZK8vZK8vZK8vZK8vO8vZK8vZK8vZK8vZK8vZK8vZK8vZK8v', 'owner', 'admin@possystem.com', 'System Administrator');
+('admin', '$2b$10$i98r7HwZ/e1hCS5BBvimx.hM8yZg7gaLflM7nVc7sydw8cTMqudTG', 'owner', 'admin@possystem.com', 'System Administrator');
 
 -- Insert sample products
 INSERT INTO products (name, category_id, barcode, buy_price, sell_price, current_stock, min_stock, unit) VALUES

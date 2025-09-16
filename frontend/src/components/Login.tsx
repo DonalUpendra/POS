@@ -19,16 +19,27 @@ const Login: React.FC = () => {
   const [password, setPassword] = useState('');
   const [role, setRole] = useState('cashier');
   const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!username || !password) {
       setError('Please fill in all fields');
       return;
     }
-    const success = login(username, password, role);
-    if (!success) {
-      setError('Invalid credentials');
+
+    setLoading(true);
+    setError('');
+
+    try {
+      const success = await login(username, password, role);
+      if (!success) {
+        setError('Invalid credentials');
+      }
+    } catch (err) {
+      setError('Login failed. Please try again.');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -103,12 +114,13 @@ const Login: React.FC = () => {
             fullWidth
             variant="contained"
             sx={{ mt: 3, mb: 2 }}
+            disabled={loading}
           >
-            Sign In
+            {loading ? 'Signing In...' : 'Sign In'}
           </Button>
         </Box>
         <Typography variant="body2" color="text.secondary" align="center">
-          Demo credentials: admin/admin (Owner), manager/manager (Manager), cashier/cashier (Cashier)
+          Default credentials: admin/admin123 (Owner)
         </Typography>
       </Paper>
     </Box>

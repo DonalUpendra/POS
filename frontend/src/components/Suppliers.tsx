@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Box,
   Typography,
@@ -23,6 +23,8 @@ import {
   DialogActions,
   IconButton,
   Chip,
+  Alert,
+  CircularProgress,
 } from '@mui/material';
 import {
   Add as AddIcon,
@@ -37,42 +39,29 @@ import {
 
 interface Supplier {
   id: string;
+  supplier_id?: string;
   name: string;
   phone: string;
   email?: string;
-  supplierId?: string;
   address?: string;
   city?: string;
-  postalCode?: string;
-  contactPerson?: string;
-  paymentTerms?: string;
+  postal_code?: string;
+  contact_person?: string;
+  payment_terms?: string;
   notes?: string;
-  productsSupplied: number;
-  totalOrders: number;
-  lastOrder?: string;
+  products_supplied: number;
+  total_orders: number;
+  last_order_date?: string;
   status: 'active' | 'inactive';
+  created_at: string;
+  updated_at: string;
 }
 
 const Suppliers: React.FC = () => {
-  const [suppliers] = useState<Supplier[]>([
-    {
-      id: '1',
-      name: 'Supplier A',
-      phone: '123-456-7890',
-      email: 'supplierA@example.com',
-      supplierId: 'SUP001',
-      address: '123 Supplier St',
-      city: 'Business City',
-      postalCode: '12345',
-      contactPerson: 'John Manager',
-      paymentTerms: 'net_30',
-      notes: 'Primary electronics supplier',
-      productsSupplied: 8,
-      totalOrders: 15,
-      lastOrder: '2024-12-12',
-      status: 'active'
-    }
-  ]);
+  const [suppliers, setSuppliers] = useState<Supplier[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
 
   const [searchTerm, setSearchTerm] = useState('');
   const [showAddModal, setShowAddModal] = useState(false);
@@ -86,12 +75,12 @@ const Suppliers: React.FC = () => {
     name: '',
     phone: '',
     email: '',
-    supplierId: '',
+    supplier_id: '',
     address: '',
     city: '',
-    postalCode: '',
-    contactPerson: '',
-    paymentTerms: '',
+    postal_code: '',
+    contact_person: '',
+    payment_terms: '',
     notes: ''
   });
 
@@ -101,21 +90,113 @@ const Suppliers: React.FC = () => {
     (supplier.email && supplier.email.toLowerCase().includes(searchTerm.toLowerCase()))
   );
 
-  const handleAddSupplier = () => {
-    console.log('Adding supplier:', supplierForm);
-    setShowAddModal(false);
-    resetSupplierForm();
+  const handleAddSupplier = async () => {
+    try {
+      const supplierData = {
+        name: supplierForm.name,
+        phone: supplierForm.phone,
+        email: supplierForm.email,
+        supplier_id: supplierForm.supplier_id,
+        address: supplierForm.address,
+        city: supplierForm.city,
+        postal_code: supplierForm.postal_code,
+        contact_person: supplierForm.contact_person,
+        payment_terms: supplierForm.payment_terms,
+        notes: supplierForm.notes
+      };
+
+      await createSupplier(supplierData);
+      setShowAddModal(false);
+      resetSupplierForm();
+      alert('Supplier created successfully!');
+    } catch (error) {
+      alert(error instanceof Error ? error.message : 'Failed to create supplier');
+    }
   };
 
-  const handleEditSupplier = () => {
-    console.log('Editing supplier:', editingSupplier?.id, supplierForm);
-    setShowEditModal(false);
-    resetSupplierForm();
+  const handleEditSupplier = async () => {
+    if (!editingSupplier) return;
+
+    try {
+      setSubmitting(true);
+      const token = localStorage.getItem('token');
+      if (!token) {
+        throw new Error('Authentication required. Please log in again.');
+      }
+
+      const response = await fetch(`/api/suppliers/${editingSupplier.id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          name: supplierForm.name,
+          phone: supplierForm.phone,
+          email: supplierForm.email,
+          address: supplierForm.address,
+          city: supplierForm.city,
+          postal_code: supplierForm.postal_code,
+          contact_person: supplierForm.contact_person,
+          payment_terms: supplierForm.payment_terms,
+          notes: supplierForm.notes
+        }),
+      });
+
+      if (!response.ok) {
+        if (response.status === 401) {
+          throw new Error('Authentication expired. Please log in again.');
+        }
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Failed to update supplier');
+      }
+
+      // Refresh suppliers list
+      await fetchSuppliers();
+      setShowEditModal(false);
+      resetSupplierForm();
+      alert('Supplier updated successfully!');
+    } catch (error) {
+      alert(error instanceof Error ? error.message : 'Failed to update supplier');
+    } finally {
+      setSubmitting(false);
+    }
   };
 
-  const handleDeleteSupplier = (supplierId: string) => {
-    if (window.confirm('Are you sure you want to delete this supplier?')) {
-      console.log('Deleting supplier:', supplierId);
+  const handleDeleteSupplier = async (supplierId: string) => {
+    if (!window.confirm('Are you sure you want to delete this supplier? This action cannot be undone.')) {
+      return;
+    }
+
+    try {
+      setSubmitting(true);
+      const token = localStorage.getItem('token');
+      if (!token) {
+        throw new Error('Authentication required. Please log in again.');
+      }
+
+      const response = await fetch(`/api/suppliers/${supplierId}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+
+      if (!response.ok) {
+        if (response.status === 401) {
+          throw new Error('Authentication expired. Please log in again.');
+        }
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Failed to delete supplier');
+      }
+
+      // Refresh suppliers list
+      await fetchSuppliers();
+      alert('Supplier deleted successfully!');
+    } catch (error) {
+      alert(error instanceof Error ? error.message : 'Failed to delete supplier');
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -124,9 +205,41 @@ const Suppliers: React.FC = () => {
     setShowHistoryModal(true);
   };
 
-  const handleToggleStatus = (supplierId: string) => {
-    if (window.confirm('Toggle supplier status?')) {
-      console.log('Toggling status for supplier:', supplierId);
+  const handleToggleStatus = async (supplierId: string) => {
+    if (!window.confirm('Are you sure you want to toggle this supplier\'s status?')) {
+      return;
+    }
+
+    try {
+      setSubmitting(true);
+      const token = localStorage.getItem('token');
+      if (!token) {
+        throw new Error('Authentication required. Please log in again.');
+      }
+
+      const response = await fetch(`/api/suppliers/${supplierId}/status`, {
+        method: 'PATCH',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+
+      if (!response.ok) {
+        if (response.status === 401) {
+          throw new Error('Authentication expired. Please log in again.');
+        }
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Failed to toggle supplier status');
+      }
+
+      const data = await response.json();
+      // Refresh suppliers list
+      await fetchSuppliers();
+      alert(data.message);
+    } catch (error) {
+      alert(error instanceof Error ? error.message : 'Failed to toggle supplier status');
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -135,12 +248,12 @@ const Suppliers: React.FC = () => {
       name: '',
       phone: '',
       email: '',
-      supplierId: '',
+      supplier_id: '',
       address: '',
       city: '',
-      postalCode: '',
-      contactPerson: '',
-      paymentTerms: '',
+      postal_code: '',
+      contact_person: '',
+      payment_terms: '',
       notes: ''
     });
   };
@@ -151,12 +264,12 @@ const Suppliers: React.FC = () => {
       name: supplier.name,
       phone: supplier.phone,
       email: supplier.email || '',
-      supplierId: supplier.supplierId || '',
+      supplier_id: supplier.supplier_id || '',
       address: supplier.address || '',
       city: supplier.city || '',
-      postalCode: supplier.postalCode || '',
-      contactPerson: supplier.contactPerson || '',
-      paymentTerms: supplier.paymentTerms || '',
+      postal_code: supplier.postal_code || '',
+      contact_person: supplier.contact_person || '',
+      payment_terms: supplier.payment_terms || '',
       notes: supplier.notes || ''
     });
     setShowEditModal(true);
@@ -164,9 +277,95 @@ const Suppliers: React.FC = () => {
 
   const generateSupplierId = () => {
     const supplierId = 'SUP' + Date.now().toString().slice(-6);
-    setSupplierForm({ ...supplierForm, supplierId });
+    setSupplierForm({ ...supplierForm, supplier_id: supplierId });
   };
 
+  // API functions
+  const fetchSuppliers = async () => {
+    try {
+      setLoading(true);
+      const token = localStorage.getItem('token');
+      if (!token) {
+        throw new Error('Authentication required. Please log in again.');
+      }
+
+      const response = await fetch('/api/suppliers', {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+
+      if (!response.ok) {
+        if (response.status === 401) {
+          throw new Error('Authentication expired. Please log in again.');
+        }
+        throw new Error('Failed to fetch suppliers');
+      }
+
+      const data = await response.json();
+      setSuppliers(data.data || []);
+      setError(null);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to fetch suppliers');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const createSupplier = async (supplierData: any) => {
+    try {
+      setSubmitting(true);
+      const token = localStorage.getItem('token');
+      if (!token) {
+        throw new Error('Authentication required. Please log in again.');
+      }
+
+      const response = await fetch('/api/suppliers', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify(supplierData),
+      });
+
+      if (!response.ok) {
+        if (response.status === 401) {
+          throw new Error('Authentication expired. Please log in again.');
+        }
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Failed to create supplier');
+      }
+
+      const data = await response.json();
+      setSuppliers(prev => [...prev, data.data]);
+      return data;
+    } catch (err) {
+      throw err;
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchSuppliers();
+  }, []);
+
+  if (loading) {
+    return (
+      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '400px' }}>
+        <CircularProgress />
+      </Box>
+    );
+  }
+
+  if (error) {
+    return (
+      <Box sx={{ p: 3 }}>
+        <Alert severity="error">{error}</Alert>
+      </Box>
+    );
+  }
 
   return (
     <Box sx={{ width: '100%', maxWidth: '100%' }}>
@@ -246,14 +445,14 @@ const Suppliers: React.FC = () => {
                           <Typography variant="body1" sx={{ fontWeight: 600 }}>
                             {supplier.name}
                           </Typography>
-                          {supplier.supplierId && (
+                          {supplier.supplier_id && (
                             <Typography variant="body2" color="text.secondary">
-                              ID: {supplier.supplierId}
+                              ID: {supplier.supplier_id}
                             </Typography>
                           )}
-                          {supplier.contactPerson && (
+                          {supplier.contact_person && (
                             <Typography variant="body2" color="text.secondary">
-                              Contact: {supplier.contactPerson}
+                              Contact: {supplier.contact_person}
                             </Typography>
                           )}
                         </Box>
@@ -266,7 +465,7 @@ const Suppliers: React.FC = () => {
                             <Typography variant="body2">{supplier.address}</Typography>
                             {supplier.city && (
                               <Typography variant="body2" color="text.secondary">
-                                {supplier.city}{supplier.postalCode ? `, ${supplier.postalCode}` : ''}
+                                {supplier.city}{supplier.postal_code ? `, ${supplier.postal_code}` : ''}
                               </Typography>
                             )}
                           </Box>
@@ -276,13 +475,13 @@ const Suppliers: React.FC = () => {
                       </TableCell>
                       <TableCell>
                         <Chip
-                          label={supplier.productsSupplied}
+                          label={supplier.products_supplied}
                           color="primary"
                           size="small"
                         />
                       </TableCell>
-                      <TableCell>{supplier.totalOrders}</TableCell>
-                      <TableCell>{supplier.lastOrder || '-'}</TableCell>
+                      <TableCell>{supplier.total_orders}</TableCell>
+                      <TableCell>{supplier.last_order_date ? new Date(supplier.last_order_date).toLocaleDateString() : '-'}</TableCell>
                       <TableCell>
                         <Chip
                           label={supplier.status}
@@ -343,8 +542,8 @@ const Suppliers: React.FC = () => {
               <TextField
                 fullWidth
                 label="Supplier ID"
-                value={supplierForm.supplierId}
-                onChange={(e) => setSupplierForm({ ...supplierForm, supplierId: e.target.value })}
+                value={supplierForm.supplier_id}
+                onChange={(e) => setSupplierForm({ ...supplierForm, supplier_id: e.target.value })}
                 placeholder="Auto-generated if empty"
               />
               <Button variant="outlined" onClick={generateSupplierId}>
@@ -367,20 +566,20 @@ const Suppliers: React.FC = () => {
             <TextField
               fullWidth
               label="Postal Code"
-              value={supplierForm.postalCode}
-              onChange={(e) => setSupplierForm({ ...supplierForm, postalCode: e.target.value })}
+              value={supplierForm.postal_code}
+              onChange={(e) => setSupplierForm({ ...supplierForm, postal_code: e.target.value })}
             />
             <TextField
               fullWidth
               label="Contact Person"
-              value={supplierForm.contactPerson}
-              onChange={(e) => setSupplierForm({ ...supplierForm, contactPerson: e.target.value })}
+              value={supplierForm.contact_person}
+              onChange={(e) => setSupplierForm({ ...supplierForm, contact_person: e.target.value })}
             />
             <FormControl fullWidth>
               <InputLabel>Payment Terms</InputLabel>
               <Select
-                value={supplierForm.paymentTerms}
-                onChange={(e) => setSupplierForm({ ...supplierForm, paymentTerms: e.target.value })}
+                value={supplierForm.payment_terms}
+                onChange={(e) => setSupplierForm({ ...supplierForm, payment_terms: e.target.value })}
                 label="Payment Terms"
               >
                 <MenuItem value="net_15">Net 15 days</MenuItem>
@@ -405,8 +604,10 @@ const Suppliers: React.FC = () => {
           </Box>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setShowAddModal(false)}>Cancel</Button>
-          <Button onClick={handleAddSupplier} variant="contained">Add Supplier</Button>
+          <Button onClick={() => setShowAddModal(false)} disabled={submitting}>Cancel</Button>
+          <Button onClick={handleAddSupplier} variant="contained" disabled={submitting}>
+            {submitting ? 'Adding...' : 'Add Supplier'}
+          </Button>
         </DialogActions>
       </Dialog>
 
@@ -439,8 +640,8 @@ const Suppliers: React.FC = () => {
             <TextField
               fullWidth
               label="Supplier ID"
-              value={supplierForm.supplierId}
-              onChange={(e) => setSupplierForm({ ...supplierForm, supplierId: e.target.value })}
+              value={supplierForm.supplier_id}
+              onChange={(e) => setSupplierForm({ ...supplierForm, supplier_id: e.target.value })}
             />
             <TextField
               fullWidth
@@ -457,20 +658,20 @@ const Suppliers: React.FC = () => {
             <TextField
               fullWidth
               label="Postal Code"
-              value={supplierForm.postalCode}
-              onChange={(e) => setSupplierForm({ ...supplierForm, postalCode: e.target.value })}
+              value={supplierForm.postal_code}
+              onChange={(e) => setSupplierForm({ ...supplierForm, postal_code: e.target.value })}
             />
             <TextField
               fullWidth
               label="Contact Person"
-              value={supplierForm.contactPerson}
-              onChange={(e) => setSupplierForm({ ...supplierForm, contactPerson: e.target.value })}
+              value={supplierForm.contact_person}
+              onChange={(e) => setSupplierForm({ ...supplierForm, contact_person: e.target.value })}
             />
             <FormControl fullWidth>
               <InputLabel>Payment Terms</InputLabel>
               <Select
-                value={supplierForm.paymentTerms}
-                onChange={(e) => setSupplierForm({ ...supplierForm, paymentTerms: e.target.value })}
+                value={supplierForm.payment_terms}
+                onChange={(e) => setSupplierForm({ ...supplierForm, payment_terms: e.target.value })}
                 label="Payment Terms"
               >
                 <MenuItem value="net_15">Net 15 days</MenuItem>
@@ -494,8 +695,10 @@ const Suppliers: React.FC = () => {
           </Box>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setShowEditModal(false)}>Cancel</Button>
-          <Button onClick={handleEditSupplier} variant="contained">Update Supplier</Button>
+          <Button onClick={() => setShowEditModal(false)} disabled={submitting}>Cancel</Button>
+          <Button onClick={handleEditSupplier} variant="contained" disabled={submitting}>
+            {submitting ? 'Updating...' : 'Update Supplier'}
+          </Button>
         </DialogActions>
       </Dialog>
 
@@ -552,7 +755,7 @@ const Suppliers: React.FC = () => {
                   <Card>
                     <CardContent sx={{ textAlign: 'center' }}>
                       <Typography variant="h4" color="primary" sx={{ fontWeight: 600 }}>
-                        {selectedSupplier.productsSupplied}
+                        {selectedSupplier.products_supplied}
                       </Typography>
                       <Typography variant="body2" color="text.secondary">
                         Products Supplied
@@ -562,7 +765,7 @@ const Suppliers: React.FC = () => {
                   <Card>
                     <CardContent sx={{ textAlign: 'center' }}>
                       <Typography variant="h4" color="success.main" sx={{ fontWeight: 600 }}>
-                        Rs.{selectedSupplier.totalOrders.toFixed(2)}
+                        Rs.{selectedSupplier.total_orders.toFixed(2)}
                       </Typography>
                       <Typography variant="body2" color="text.secondary">
                         Total Orders

@@ -1,6 +1,7 @@
 const express = require('express');
 const { body, param, query, validationResult } = require('express-validator');
 const Product = require('../models/Product');
+const ActivityLog = require('../models/ActivityLog');
 const { authenticateToken, authorizeManager } = require('../middleware/auth');
 
 const router = express.Router();
@@ -169,6 +170,21 @@ router.post('/', authenticateToken, authorizeManager, [
 
     const newProduct = await Product.findById(productId);
 
+    // Log product creation activity
+    try {
+      await ActivityLog.create({
+        user_id: req.user.id,
+        action: 'product_created',
+        description: `Created product: ${newProduct.name}`,
+        entity_type: 'product',
+        entity_id: productId,
+        ip_address: req.ip || req.connection.remoteAddress || 'unknown'
+      });
+    } catch (logError) {
+      console.error('Failed to log product creation activity:', logError);
+      // Don't fail the product creation if logging fails
+    }
+
     res.status(201).json({
       success: true,
       message: 'Product created successfully',
@@ -235,6 +251,21 @@ router.put('/:id', authenticateToken, authorizeManager, [
     }
 
     const updatedProduct = await Product.findById(id);
+
+    // Log product update activity
+    try {
+      await ActivityLog.create({
+        user_id: req.user.id,
+        action: 'product_updated',
+        description: `Updated product: ${updatedProduct.name}`,
+        entity_type: 'product',
+        entity_id: id,
+        ip_address: req.ip || req.connection.remoteAddress || 'unknown'
+      });
+    } catch (logError) {
+      console.error('Failed to log product update activity:', logError);
+      // Don't fail the product update if logging fails
+    }
 
     res.json({
       success: true,

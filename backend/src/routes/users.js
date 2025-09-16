@@ -2,6 +2,7 @@ const express = require('express');
 const { body, validationResult } = require('express-validator');
 const { authenticateToken, authorizeOwner } = require('../middleware/auth');
 const User = require('../models/User');
+const ActivityLog = require('../models/ActivityLog');
 
 const router = express.Router();
 
@@ -45,6 +46,21 @@ router.post('/', authenticateToken, authorizeOwner, [
 
     const newUser = await User.findById(userId);
     delete newUser.password_hash; // Don't send password hash
+
+    // Log user creation activity
+    try {
+      await ActivityLog.create({
+        user_id: req.user.id,
+        action: 'user_created',
+        description: `Created user: ${newUser.username} (${newUser.role})`,
+        entity_type: 'user',
+        entity_id: userId,
+        ip_address: req.ip || req.connection.remoteAddress || 'unknown'
+      });
+    } catch (logError) {
+      console.error('Failed to log user creation activity:', logError);
+      // Don't fail the user creation if logging fails
+    }
 
     res.status(201).json({
       success: true,
@@ -218,6 +234,41 @@ router.delete('/:id', authenticateToken, authorizeOwner, async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Failed to delete user'
+    });
+  }
+});
+
+// Get user activity history
+router.get('/:id/activity', authenticateToken, authorizeOwner, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { limit = 50, offset = 0 } = req.query;
+
+    // Verify user exists
+    const user = await User.findById(id);
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found'
+      });
+    }
+
+    const activities = await ActivityLog.findByUserId(id, parseInt(limit), parseInt(offset));
+
+    res.json({
+      success: true,
+      data: activities,
+      user: {
+        id: user.id,
+        username: user.username,
+        full_name: user.full_name
+      }
+    });
+  } catch (error) {
+    console.error('Get user activity error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch user activity'
     });
   }
 });

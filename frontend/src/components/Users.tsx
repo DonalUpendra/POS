@@ -68,6 +68,8 @@ const Users: React.FC = () => {
   const [editingUser, setEditingUser] = useState<User | null>(null);
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [userActivities, setUserActivities] = useState<any[]>([]);
+  const [activitiesLoading, setActivitiesLoading] = useState(false);
 
   // API functions
   const fetchUsers = async () => {
@@ -326,8 +328,41 @@ const Users: React.FC = () => {
     }
   };
 
+  const fetchUserActivities = async (userId: string) => {
+    try {
+      setActivitiesLoading(true);
+      const token = localStorage.getItem('token');
+      if (!token) {
+        throw new Error('Authentication required. Please log in again.');
+      }
+
+      const response = await fetch(`/api/users/${userId}/activity`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+
+      if (!response.ok) {
+        if (response.status === 401) {
+          throw new Error('Authentication expired. Please log in again.');
+        }
+        throw new Error('Failed to fetch user activities');
+      }
+
+      const data = await response.json();
+      setUserActivities(data.data || []);
+    } catch (err) {
+      console.error('Error fetching user activities:', err);
+      setUserActivities([]);
+    } finally {
+      setActivitiesLoading(false);
+    }
+  };
+
   const handleViewActivity = (user: User) => {
     setSelectedUser(user);
+    setUserActivities([]);
+    fetchUserActivities(user.id);
     setShowActivityModal(true);
   };
 
@@ -870,42 +905,58 @@ const Users: React.FC = () => {
 
       {/* User Activity Modal */}
       <Dialog open={showActivityModal} onClose={() => setShowActivityModal(false)} maxWidth="lg" fullWidth>
-        <DialogTitle>User Activity History</DialogTitle>
+        <DialogTitle>
+          User Activity History - {selectedUser?.full_name || selectedUser?.username}
+        </DialogTitle>
         <DialogContent>
           {selectedUser && (
             <Box>
-              <TableContainer component={Paper}>
-                <Table>
-                  <TableHead>
-                    <TableRow>
-                      <TableCell>Date</TableCell>
-                      <TableCell>Action</TableCell>
-                      <TableCell>Details</TableCell>
-                      <TableCell>IP Address</TableCell>
-                    </TableRow>
-                  </TableHead>
-                  <TableBody>
-                    <TableRow>
-                      <TableCell>Dec 15, 2024 14:30</TableCell>
-                      <TableCell>Login</TableCell>
-                      <TableCell>Successful login</TableCell>
-                      <TableCell>192.168.1.100</TableCell>
-                    </TableRow>
-                    <TableRow>
-                      <TableCell>Dec 15, 2024 14:25</TableCell>
-                      <TableCell>Order Created</TableCell>
-                      <TableCell>Order #ORD001</TableCell>
-                      <TableCell>192.168.1.100</TableCell>
-                    </TableRow>
-                    <TableRow>
-                      <TableCell>Dec 15, 2024 09:15</TableCell>
-                      <TableCell>Product Updated</TableCell>
-                      <TableCell>Updated iPhone stock</TableCell>
-                      <TableCell>192.168.1.100</TableCell>
-                    </TableRow>
-                  </TableBody>
-                </Table>
-              </TableContainer>
+              {activitiesLoading ? (
+                <Box sx={{ display: 'flex', justifyContent: 'center', p: 3 }}>
+                  <CircularProgress />
+                </Box>
+              ) : userActivities.length === 0 ? (
+                <Box sx={{ textAlign: 'center', p: 3 }}>
+                  <Typography variant="h6" color="text.secondary">
+                    No activity found
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    This user hasn't performed any tracked activities yet.
+                  </Typography>
+                </Box>
+              ) : (
+                <TableContainer component={Paper}>
+                  <Table>
+                    <TableHead>
+                      <TableRow>
+                        <TableCell>Date & Time</TableCell>
+                        <TableCell>Action</TableCell>
+                        <TableCell>Details</TableCell>
+                        <TableCell>IP Address</TableCell>
+                      </TableRow>
+                    </TableHead>
+                    <TableBody>
+                      {userActivities.map((activity) => (
+                        <TableRow key={activity.id}>
+                          <TableCell>
+                            {new Date(activity.created_at).toLocaleString()}
+                          </TableCell>
+                          <TableCell>
+                            <Chip
+                              label={activity.action.replace(/_/g, ' ').toUpperCase()}
+                              size="small"
+                              color="primary"
+                              variant="outlined"
+                            />
+                          </TableCell>
+                          <TableCell>{activity.description || '-'}</TableCell>
+                          <TableCell>{activity.ip_address || '-'}</TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </TableContainer>
+              )}
             </Box>
           )}
         </DialogContent>

@@ -2,6 +2,7 @@ const express = require('express');
 const jwt = require('jsonwebtoken');
 const { body, validationResult } = require('express-validator');
 const User = require('../models/User');
+const ActivityLog = require('../models/ActivityLog');
 const { authenticateToken } = require('../middleware/auth');
 
 const router = express.Router();
@@ -68,6 +69,20 @@ router.post('/login', [
       process.env.JWT_SECRET || 'your-secret-key',
       { expiresIn: '24h' }
     );
+
+    // Log successful login activity
+    try {
+      await ActivityLog.create({
+        user_id: user.id,
+        action: 'login',
+        description: 'Successful login',
+        entity_type: 'auth',
+        ip_address: req.ip || req.connection.remoteAddress || 'unknown'
+      });
+    } catch (logError) {
+      console.error('Failed to log login activity:', logError);
+      // Don't fail the login if logging fails
+    }
 
     // Return user info and token
     res.json({

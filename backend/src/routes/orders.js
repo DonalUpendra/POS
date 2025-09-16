@@ -1,6 +1,7 @@
 const express = require('express');
 const { authenticateToken, authorizeCashier } = require('../middleware/auth');
 const { getPool } = require('../config/database');
+const ActivityLog = require('../models/ActivityLog');
 
 const router = express.Router();
 
@@ -77,6 +78,21 @@ router.post('/', authenticateToken, authorizeCashier, async (req, res) => {
     `, [orderId, payment_method, payment_amount, user_id]);
 
     await connection.commit();
+
+    // Log order creation activity
+    try {
+      await ActivityLog.create({
+        user_id: user_id,
+        action: 'order_created',
+        description: `Created order ${orderNumber} with ${items.length} items, total: $${final_amount.toFixed(2)}`,
+        entity_type: 'order',
+        entity_id: orderId,
+        ip_address: req.ip || req.connection.remoteAddress || 'unknown'
+      });
+    } catch (logError) {
+      console.error('Failed to log order creation activity:', logError);
+      // Don't fail the order creation if logging fails
+    }
 
     res.status(201).json({
       success: true,

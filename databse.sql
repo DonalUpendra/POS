@@ -182,6 +182,22 @@ CREATE TABLE supplier_order_items (
     FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE CASCADE
 );
 
+-- Activity logs table for tracking user activities
+CREATE TABLE activity_logs (
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    user_id INT NOT NULL,
+    action VARCHAR(100) NOT NULL,
+    description TEXT,
+    entity_type VARCHAR(50),
+    entity_id INT,
+    ip_address VARCHAR(45),
+    user_agent TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    INDEX idx_user_activity (user_id, created_at),
+    INDEX idx_action_type (action, entity_type)
+);
+
 -- Indexes for better performance
 CREATE INDEX idx_products_category ON products(category_id);
 CREATE INDEX idx_products_supplier ON products(supplier_id);

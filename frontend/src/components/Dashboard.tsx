@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Box,
   Typography,
@@ -11,6 +11,7 @@ import {
   TableContainer,
   TableHead,
   TableRow,
+  Alert,
 } from '@mui/material';
 import {
   Dashboard as DashboardIcon,
@@ -26,6 +27,26 @@ import {
 } from '@mui/icons-material';
 
 const Dashboard: React.FC = () => {
+  const [dbError, setDbError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const checkHealth = async () => {
+      try {
+        const response = await fetch('/api/health');
+        const data = await response.json();
+        if (data.database !== 'connected') {
+          setDbError('Database connection failed. Please check your database configuration.');
+        } else {
+          setDbError(null);
+        }
+      } catch (error) {
+        setDbError('Unable to check database status. Server may be unavailable.');
+      }
+    };
+
+    checkHealth();
+  }, []);
+
   const dashboardCards = [
     {
       title: "Today's Sales",
@@ -119,6 +140,13 @@ const Dashboard: React.FC = () => {
           Dashboard Overview
         </Typography>
       </Box>
+
+      {/* Database Error Alert */}
+      {dbError && (
+        <Alert severity="error" sx={{ mb: 3 }}>
+          {dbError}
+        </Alert>
+      )}
 
       {/* Dashboard Cards */}
       <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 3, mb: 4 }}>

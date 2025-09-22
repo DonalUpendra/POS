@@ -42,12 +42,24 @@ app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
 // Health check endpoint
-app.get('/api/health', (req, res) => {
-  res.json({
-    status: 'OK',
-    timestamp: new Date().toISOString(),
-    uptime: process.uptime()
-  });
+app.get('/api/health', async (req, res) => {
+  try {
+    const dbConnected = await testConnection();
+    res.json({
+      status: dbConnected ? 'OK' : 'ERROR',
+      timestamp: new Date().toISOString(),
+      uptime: process.uptime(),
+      database: dbConnected ? 'connected' : 'disconnected'
+    });
+  } catch (error) {
+    res.status(500).json({
+      status: 'ERROR',
+      timestamp: new Date().toISOString(),
+      uptime: process.uptime(),
+      database: 'error',
+      message: error.message
+    });
+  }
 });
 
 // API routes
